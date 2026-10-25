@@ -24,7 +24,7 @@ import type {
 import type { LayerKind, SlotSettings as SlotModelSettings } from '../../shared/components/model.js';
 import { slotNodesOf } from './apply.js';
 import { ComponentRunError } from './errors.js';
-import { receiptOf, sortNodes, stampedAs, stampOn, type Sorted, type Stamp } from './stamp.js';
+import { isOwn, receiptOf, sortNodes, stampedAs, stampOn, type Sorted, type Stamp } from './stamp.js';
 import { reportedOf } from './receipt.js';
 import { loadLock } from '../utils/lockStore.js';
 
@@ -108,12 +108,17 @@ export async function stampedTree(root: SceneNode & ChildrenMixin, slots: boolea
     found.push(entry);
     return entry;
   };
-  const walk = (node: BaseNode & ChildrenMixin, parent: string | undefined, up: TreeNode): void => {
+  const walk = (node: BaseNode & ChildrenMixin, parent: string | undefined, up: TreeNode, slot = false): void => {
     for (const [index, child] of (node.children as readonly SceneNode[]).entries()) {
+      // A slot's default content comes with the instance, stamped as its component's layer: the component's, not the
+      // artboard's. What the artboard places in a slot carries a stamp of its own. // ponytail: a person's cut and paste
+      // of the artboard's slot content is left out too, not read as moved; tell the two apart when someone needs it.
+      const stamp = slot ? stampOn(child) : undefined;
+      if (stamp && !isOwn(child, stamp)) continue;
       const entry = add(child, index, parent, up, LAYER_TYPES[child.type]);
       if (entry.address === undefined) continue;
       if (child.type === 'INSTANCE') {
-        if (slots) for (const slot of slotNodesOf(child)) walk(slot, slotKey(entry.address, slot.name), entry);
+        if (slots) for (const held of slotNodesOf(child)) walk(held, slotKey(entry.address, held.name), entry, true);
       } else if ('children' in child) {
         walk(child, entry.address, entry);
       }

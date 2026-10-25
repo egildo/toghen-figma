@@ -677,6 +677,26 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     }
   });
 
+  const TRAY = join(here, 'fixtures/figcraft/tray.component.kdl');
+  const tray = `component Tray\nproperties {\n    SLOT Body minChildren=0\n}\nFRAME Tray layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG {\n    SLOT Body layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG {\n        TEXT Text characters=(literal)"Default"\n    }\n}\n`;
+  const TRAYS = join(here, 'fixtures/figcraft/trays.artboard.kdl');
+  const trays = `artboard Trays\nFRAME Trays layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG {\n    INSTANCE One component=Tray\n    INSTANCE Two component=Tray\n}\n`;
+
+  it("leaves a slot's default content, which comes with each instance stamped as its component's, to the component", async () => {
+    const fake = await startFakeFigcraft();
+    const run = () =>
+      sync(fake, [], { [TRAY]: tray, [TRAYS]: trays }, ['fixtures/figcraft/tray.component.kdl', 'fixtures/figcraft/trays.artboard.kdl']);
+    try {
+      assert.equal((await run()).code, 0);
+      const labels = fake.labels.length;
+      const second = await run();
+      read(fake, second, /Trays: 0 steps/, labels);
+      assert.doesNotMatch(second.stdout, /copy of Toghen's layer "Text"|breaking/);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('refuses by name what is not built for FigCraft yet, before it writes anything, a dry run included', async () => {
     const fake = await startFakeFigcraft();
     const path = join(here, 'fixtures/figcraft/button.component.kdl');
