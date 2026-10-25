@@ -1,0 +1,2 @@
+"button": folds "variant" (modes rest, primary), "state" (modes rest, hover, pressed, disabled); "selection" stays in the path, one variable per part: "button.selected.hover.backgroundColor" carries it together with the folded "state".
+"field": "state" stays in the path, one variable per part: no rest value: "field.disabled.opacity" needs "field.opacity", which is not defined.

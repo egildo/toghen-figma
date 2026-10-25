@@ -1,0 +1,10 @@
+{
+  // Editor default. Extends the test config because it has the broadest include
+  // (test + main + shared), so opening any file in an editor resolves.
+  //
+  // This is the permissive view. `pnpm typecheck` additionally runs
+  // tsconfig.plugin.json, which compiles main/ and shared/ under the sandbox's
+  // narrower lib and without Node types — so CI is stricter than the editor,
+  // and that is the intended direction.
+  "extends": "./tsconfig.test.json"
+}

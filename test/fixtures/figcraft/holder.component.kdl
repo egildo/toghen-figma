@@ -1,0 +1,11 @@
+component Holder
+description "A frame with a slot and an exposed mark."
+
+properties {
+    SLOT Content description="What the holder holds." minChildren=0
+}
+
+FRAME Holder layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG {
+    SLOT Content layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG
+    INSTANCE Mark component=Icon isExposedInstance=#true
+}

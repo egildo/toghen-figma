@@ -1,0 +1,30 @@
+component Control
+description "A pressable control with a label and an optional icon."
+
+properties {
+    VARIANT Variant solid outline
+    VARIANT State rest hover pressed
+    VARIANT Size medium small large
+    TEXT Label default="Label"
+    BOOLEAN "Show Icon" default=#true
+    INSTANCE_SWAP Icon default=Glyph
+}
+exclude Variant=outline State=hover
+exclude Variant=outline State=pressed
+
+guard active { is (input)State hover pressed }
+guard small { is (input)Size small }
+guard outline { is (input)Variant outline }
+
+FRAME Control layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER paddingLeft="{space.md}" paddingRight="{space.md}" paddingTop="{space.sm}" paddingBottom="{space.sm}" itemSpacing="{space.sm}" cornerRadius="{radius.md}" strokeWeight=(literal)1 minHeight=(literal)44 { // a touch target, no token names it
+    fills "{surface.control}"
+    when active { fills "{surface.control-active}"; }
+    // A translucent white highlight: only this control uses it.
+    strokes (literal)"#ffffff80"
+    when small paddingLeft="{space.sm}" paddingRight="{space.sm}" { modes Scale=small; }
+    when outline { fills; strokes "{border.strong}"; }
+    INSTANCE "Leading icon" visible=(property)"Show Icon" component=(property)Icon
+    TEXT Caption characters=(property)Label textStyle="{text.label}" textAutoResize=WIDTH_AND_HEIGHT {
+        when small textStyle="{text.label-small}"
+    }
+}

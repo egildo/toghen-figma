@@ -1,0 +1,17 @@
+{
+  // Settings shared by every environment in this package. The environment-
+  // specific parts — `target`, `lib` and `types` — deliberately live in the
+  // configs that extend this one: plugin code runs in Figma's sandbox, tests
+  // run in Node, and giving them one shared set is how `Array.prototype.at`
+  // (ES2022) came to be usable in code compiled as ES2017.
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  }
+}

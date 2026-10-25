@@ -1,0 +1,13 @@
+component Button
+description "A button with a label, on the accent colour."
+
+properties {
+    TEXT Label default="Save"
+}
+
+FRAME Button layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER paddingTop="{space.sm}" paddingBottom="{space.sm}" cornerRadius="{radius.md}" {
+    fills "{surface.accent}"
+    TEXT Caption characters=(property)Label textStyle="{type.label}" {
+        fills "{text.on-accent}"
+    }
+}

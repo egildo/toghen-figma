@@ -1,0 +1,65 @@
+ds  (modes: default)
+  text/on-accent  COLOR  var(--text-on-accent)
+    default: #ffffff
+  radius/md  FLOAT  var(--radius-md)
+    default: 6
+  button/backgroundColor  COLOR  var(--button-background-color)
+    default: alias theme/surface/raised
+  button/color  COLOR  var(--button-color)
+    default: alias theme/text/default
+  button/paddingBlock  FLOAT  var(--button-padding-block)
+    default: alias density/space/sm
+  button/borderRadius  FLOAT  var(--button-border-radius)
+    default: alias ds/radius/md
+  button/icon/color  COLOR  var(--button-icon-color)
+    default: alias theme/text/muted
+  button/primary/backgroundColor  COLOR  var(--button-primary-background-color)
+    default: alias theme/surface/accent
+  button/primary/color  COLOR  var(--button-primary-color)
+    default: alias ds/text/on-accent
+  button/hover/backgroundColor  COLOR  var(--button-hover-background-color)
+    default: alias theme/surface/selected
+  button/pressed/backgroundColor  COLOR  var(--button-pressed-background-color)
+    default: alias theme/surface/selected
+  button/pressed/color  COLOR  var(--button-pressed-color)
+    default: alias theme/text/muted
+  button/disabled/color  COLOR  var(--button-disabled-color)
+    default: alias theme/text/muted
+  button/selected/backgroundColor  COLOR  var(--button-selected-background-color)
+    default: alias theme/surface/selected
+  button/selected/hover/backgroundColor  COLOR  var(--button-selected-hover-background-color)
+    default: alias theme/surface/accent
+  field/backgroundColor  COLOR  var(--field-background-color)
+    default: alias theme/surface/raised
+  field/color  COLOR  var(--field-color)
+    default: alias theme/text/default
+  field/paddingBlock  FLOAT  var(--field-padding-block)
+    default: alias density/space/sm
+  field/borderRadius  FLOAT  var(--field-border-radius)
+    default: alias ds/radius/md
+  field/focus/outlineColor  COLOR  var(--field-focus-outline-color)
+    default: alias theme/surface/accent
+  field/disabled/opacity  FLOAT  var(--field-disabled-opacity)
+    default: 50
+
+theme  (modes: light, dark)
+  surface/raised  COLOR  var(--surface-raised)
+    light: #ffffff
+    dark: #2b2b2b
+  surface/accent  COLOR  var(--surface-accent)
+    light: #1a66e6
+    dark: #5c9bff
+  surface/selected  COLOR  var(--surface-selected)
+    light: #e0ebfc
+    dark: #26364d
+  text/default  COLOR  var(--text-default)
+    light: #1a1a1a
+    dark: #f2f2f2
+  text/muted  COLOR  var(--text-muted)
+    light: #666666
+    dark: #a6a6a6
+
+density  (modes: regular, compact)
+  space/sm  FLOAT  var(--space-sm)
+    regular: 8
+    compact: 4

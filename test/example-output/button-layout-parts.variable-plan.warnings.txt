@@ -1,0 +1,2 @@
+"button": "variant" stays in the path, one variable per part: the component is laid out as one variable per part (layout=parts); "state" stays in the path, one variable per part: the component is laid out as one variable per part (layout=parts); "selection" stays in the path, one variable per part: the component is laid out as one variable per part (layout=parts).
+"field": "state" stays in the path, one variable per part: no rest value: "field.disabled.opacity" needs "field.opacity", which is not defined.

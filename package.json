@@ -1,0 +1,66 @@
+{
+  "name": "@toghen/figma",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "toghen-figma": "cli/bin.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "build:dist": "node build.mjs",
+    "build:dist:prod": "NODE_ENV=production node build.mjs",
+    "build:watch": "node build.mjs --watch",
+    "preview": "node scripts/preview.mjs",
+    "typecheck": "tsc -p tsconfig.plugin.json && tsc -p tsconfig.test.json",
+    "expectations": "tsx scripts/expectation-sheet.ts",
+    "components": "node cli/bin.mjs components",
+    "toghen-figma": "node cli/bin.mjs",
+    "pretest": "pnpm typecheck",
+    "test": "node --import tsx/esm --test 'test/**/*.test.ts'",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "biome check . && pnpm typecheck && pnpm test && pnpm build && node scripts/check-purity.mjs && node scripts/check-leaks.mjs",
+    "prepack": "node build.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@figma/plugin-typings": "^1.142.0",
+    "@toghen/ui": "^0.1.0",
+    "@types/node": "^24.1.0",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.21.0",
+    "postcss": "^8.5.8",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@bgotink/kdl": "^0.4.0",
+    "@toghen/lib": "^0.1.0",
+    "kdlet": "^0.1.0",
+    "kdlet-guards": "^0.1.0",
+    "tsx": "^4.20.3",
+    "ws": "^8.22.0"
+  },
+  "license": "MIT",
+  "author": "Egildo Tagliareni <egildo@tagliareni.it>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://codeberg.org/Toghen/figma.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "description": "Toghen's Figma adapter: tokens to Variables and Styles, component files, and the toghen-figma command line",
+  "files": [
+    "cli/",
+    "main/",
+    "shared/",
+    "dist/",
+    "manifest.json",
+    "README.md",
+    "guide.md",
+    "reference.md",
+    "component-files.md",
+    "LICENSE"
+  ]
+}

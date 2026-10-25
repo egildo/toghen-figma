@@ -1,0 +1,28 @@
+component Panel
+
+FRAME Panel width=(literal)300 height=(literal)200 cornerSmoothing=(literal)0.6 blendMode=MULTIPLY {
+    fills "{color.bg.surface}"
+    FRAME Grid layoutMode=GRID width=(literal)240 height=(literal)120 gridRowGap="{spacing.xs}" gridColumnGap="{spacing.sm}" {
+        gridColumnSizes {
+            FIXED 60
+            FLEX 1
+            HUG
+        }
+        gridRowSizes {
+            FLEX 1
+        }
+        TEXT Note characters=(literal)"Hi" leadingTrim=CAP_HEIGHT listSpacing=(literal)6 paragraphSpacing=(literal)4 gridChildHorizontalAlign=CENTER {
+            grid row=0 column=1
+        }
+    }
+    FRAME Row layoutMode=HORIZONTAL layoutWrap=WRAP counterAxisAlignContent=SPACE_BETWEEN strokeJoin=ROUND {
+        strokes "{color.border.default}"
+        dashPattern (literal)4 (literal)2
+    }
+    FRAME Pin width=(literal)20 height=(literal)20 {
+        constraints horizontal=STRETCH vertical=MAX
+    }
+    LINE Rule width=(literal)100 strokeWeight=(literal)2 strokeCap=ROUND {
+        strokes "{color.border.default}"
+    }
+}

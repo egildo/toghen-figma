@@ -1,0 +1,53 @@
+# The Map — what each area of the screen is for
+
+> One row per area. Keep it plain.
+> "What it's for" = the kind of thing allowed to live here.
+> "Limits" = how much room / how dense / what must or must not sit here.
+
+_Project:_ `@toghen/figma`, the Toghen Figma plugin
+_Last updated:_ 2026-10-22
+
+The plugin runs in a resizable window. Its width is **our** choice, not Figma's: `showUI` documents a minimum of 70×0 and no maximum, and `figma.ui.resize()` works at any time. Nothing in this map should be justified by "the panel is narrow", because the panel is as narrow as we made it.
+
+## Big regions (whole screen)
+
+| Area | What it's for | Limits |
+|---|---|---|
+| **Tab strip** | Choosing which working area is in front | Nothing else lives here: no actions, no status. Five panes; must take one more than today without labels truncating or wrapping at the minimum width, 320px (the glyphs step aside below 400px). Measured on 22 October 2026 with a sixth label as long as Templates: whole, on one line, 8px apart; measured again with Build in Templates' place, and again with Apply in Selection's: the sixth ends 4px short of the edge |
+| **Pane body** (`main`) | One working area's own controls and content | Scrolls. Must not contain a second vertical scroll region. The Tokens browser is the one horizontal region, and only when a column does not fit |
+| **Result surface** | Everything a command produces: plan rows, progress, outcome | Shared by every pane, rendered once. Resizable and collapsible. Never duplicated per pane. Its count chips are filters: one press shows only those rows, a second shows all again; collapsed, the chips stay in the bar and the source gives way |
+| **Status bar** | The plugin's own condition, in one line, and the two controls that are about the plugin itself: the window switch and the command-line connection | One line, always visible, never scrolls. Left, "is it busy / did it fail"; right, the command line's connection as an event with its time, and the switch between the window's two remembered sizes. Nothing about the design system. *Pending sign-off* |
+
+## The five panes
+
+| Pane | What it's for | Limits |
+|---|---|---|
+| **Load** | What the design system is made of: the files it reads and how they combine | Two states, and they look different (R8). Nothing loaded → one way in: drop or choose a resolver document, token files or a folder; the recents; the file's record callout; the Source card. What was picked waits beside Load, with the entry chosen and, for token files, the collection's name in a field, both on screen before Load runs (R10), and the overrides map beside them (R3). Loaded → the form and the entry, one row per file read, the overrides map as a table (*ref as written*, *file read*; a key that matched nothing is a row marked as a problem), the collections the document makes (names and modes, not compared with Figma), and the Source card. Collisions go to the result surface, never here (R2). The command line's connection is in both (below) |
+| **Sync** | The state of the design system *in this file*, and the commands acting on the whole of it | Needs a document; its tab is inert without one, as Tokens' is (R8). The identity line, the sync line and the collections table (document against Figma, by name; a modifier's and a part axis's collection named as such), Variables and Styles Plan and Execute, Export with its pickers (R10). Where the document came from is Load's |
+| **Tokens** | Looking at what exists: where each token stands between the document and this file, and how the tokens point to one another | It describes and navigates; the one thing it changes is the selection. A browser of columns, one per open group, the leftmost collapsing into spines when they do not fit; a token's detail opens in place in a narrow window and as a panel in a wide one, never in a dialog. Says when it looked (R15) and never borrows the result surface. The browser is the pane's one horizontal scroll region, and only when a column does not fit |
+| **Apply** | What the selected layers are bound to, and putting a token or a set on a scope | Follows Figma's selection. The scope (selection, page, file) and the kinds (frames, instances, component definitions) choose the layers; the token query (a token's path, or a group's, which is a set) chooses the tokens. There is still no query over layer names: the selection already says which layers. A row per field the field table lists for the layer: bound, with the token and where it stands from the Tokens pane's last look; or plain, with what it holds and what the conventions would bind (R11: a value Apply wrote reads as plain, since no stamp records it). Apply's command group, then the conventions card at the foot. The context a written value takes is on screen before Plan (R10), and said once beside Apply, with the fact that its writes carry no stamp. Nothing about the design system as a whole |
+| **Build** | Blueprints and component files kept in this file, what they need, the lock, and building from them | A row per kept file, one open in place. A component file: Plan build and Build report to the result surface; whether a built set still matches its file is said as not compared until something compares it. A blueprint is not built as a whole yet, so its row has no Build (R10's corollary); open, it lists its needs (tokens, against what Load loaded; libraries, against the lock; components, found, from a library, would swap, by key or missing), each *not looked* with the grey ring until Look up, and the time it looked (R15, R16). A missing component takes **Use the selected instance**, with the library's name asked in its row (R10). Below the rows, the lock card and Build's overrides map. Plan relink, Discover variables, Plan build report to the result surface (R2); a relink is executed by each file's Build |
+
+## Objects — the small neighborhoods
+
+| Object | What it's for | Limits |
+|---|---|---|
+| **Result row** | One operation's outcome | Kind, then what it happened to, then why. A row reporting a problem is separable from a routine one at a glance |
+| **Status block** (Sync) | Answering "what am I looking at" without a click | Says what is loaded *and* what this Figma file already knows about it. Never only the document. The collections table compares what the document would build with what the file holds, by name; a collection nothing has compared carries the grey ring, never silence (R16) |
+| **Source card** (Load) | Where the document came from, and the command line's connection | The file's name and Replace, then the connection: the code field and Connect, or the last observed event and Disconnect. Nothing else |
+| **Drift popover** | One token's drift, where its drifted or upstream dot was clicked | In which modes Figma differs and why that is drift, then three actions at most: open it in Tokens, select its layers on this page, and putting the document's value back, shown disabled until the pin model exists. Closes on Escape, on a click outside, and on any pane change |
+| **Spine** (Tokens) | A column that no longer fits, kept as a strip at the left | Its name, its count and its worst dot, written up the strip. One click reopens that column. Spines collapse from the left only |
+| **Command group** | One target's Plan/Execute pair | The settings that modify a command sit with it, not in the result surface. Apply's: the token query, the field for one token (only those its type reaches; a group needs none, so it has no control), the kinds, the context a written value takes, and Plan and Execute on the pane's scope |
+| **Overrides table** (Load, Build) | An overrides map as it was used: each name as written beside what was used instead | One table for both of the map's uses, files in Load and Figma objects in Build, drawn by one component. In Build each row ends with Remove, and one row of two fields and Add sits below it: the least editing that adds and removes an entry; changing one is removing it and adding it again. A row per entry that took effect, then a row per key that matched nothing, marked as a problem with its words whole (R4). Paths wrap rather than run past the pane's edge (R1). A standing picture of the last load, not a result (R15) |
+| **Lock card** (Build) | What each library a blueprint declares resolved to, and who wrote that | A row per library: its name, who wrote the entry as an event (*found by discovery*, *written by a build*, *written by the command line*, *picked by a person*; never "linked", R11), how many components, styles and variables it holds, the file key only where one is held, and Forget. Then Discover variables and Plan relink, whose rows go to the result surface, never here (R2). It says what the record holds, not whether a library is published or its update accepted: nothing on the screen can see that |
+| **Command line group** (Load, in the Source card) | Connecting the plugin to `toghen-figma`, which then runs the commands this pane owns | One field and one button, or one status line and one button; nothing else. The status is the last event observed, with its time (R11). It sits outside the loaded block because the command line can load the document itself; what the command line produces goes to the result surface, never here |
+
+## Open — not yet decided
+
+- ~~**The command line group and R8.**~~ Closed by the redesign, both ways the question offered: the connection moved to the status bar, as an event with its time, and stays in the Source card, now the Load pane's, where the code is typed. The card is at the foot of the empty state as a connection, not a second way for a person to choose a file.
+
+- **The in-plugin overlay.** Deliberately deferred: build the panes first and let
+  a real case surface rather than inventing the pattern ahead of a need. When it
+  arrives, this table gets a row saying what it is *for* before anything is drawn.
+- ~~**Where standing drift is shown.**~~ Answered: the Inspector, which reads Figma back on demand and reports it without anything being planned. It does not need the pinned state after all, since drift is a direct comparison wherever the document has not moved. What still needs the pinned state is *reverting* a drifted token, which is why the Inspector describes and never acts. See *The pin model* in `specs.md`.
+- **Where orphan Figma variables live.** Variables no token claims are visible to the plugin now that it enumerates Figma's side, and `specs.md` records the distinction worth drawing: *abandoned* (its stamp names a token) against *foreign* (never ours). Deliberately left out of M3; this table gets a row when someone decides what that area is *for*, before anything is drawn.

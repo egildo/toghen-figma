@@ -1,0 +1,55 @@
+component Notice
+description "A message that says how something went, with an optional title and action."
+
+properties {
+    VARIANT Tone info success warning danger
+    VARIANT Emphasis subtle strong
+    BOOLEAN "Show Title" default=#true
+    BOOLEAN "Show Action" default=#true
+    TEXT Title default="Heads up"
+    TEXT Message default="Your changes were saved."
+    TEXT "Action label" default="Undo"
+}
+
+guard info { is (input)Tone info }
+guard success { is (input)Tone success }
+guard warning { is (input)Tone warning }
+guard danger { is (input)Tone danger }
+guard strong { is (input)Emphasis strong }
+// Danger always raises the alarm; a warning does only when it is strong. One guard over both axes.
+guard alarming { any { is (input)Tone danger; all { is (input)Tone warning; is (input)Emphasis strong } } }
+
+// The width comes from the page in code; Figma needs one.
+FRAME Notice layoutMode=HORIZONTAL layoutSizingVertical=HUG width=(literal)420 counterAxisAlignItems=MIN paddingTop="{space.md}" paddingRight="{space.md}" paddingBottom="{space.md}" paddingLeft="{space.md}" itemSpacing="{space.md}" cornerRadius="{radius.md}" strokeWeight=(literal)1 { // a hairline: no token names it
+    strokes "{border.subtle}"
+
+    // No tone has a colour of its own, so the tones are told apart by surface.
+    when info { fills "{surface.muted}" }
+    else success { fills "{surface.raised}" }
+    else warning { fills "{surface.page}" }
+    else { fills "{surface.control-active}" }
+
+    // A strong notice is outlined heavier (the weight is the design's, not a token's), and a strong danger changes surface.
+    when strong strokeWeight=(literal)2 {
+        strokes "{border.strong}"
+        when danger { fills "{surface.accent}" }
+    }
+
+    // An alarming notice has a bar in front of its content: a layer that exists in some members only.
+    when alarming {
+        // The bar is 4 wide by design, not by token.
+        FRAME "Alert bar" layoutMode=NONE layoutSizingVertical=FILL width=(literal)4 cornerRadius="{radius.full}" {
+            fills "{border.strong}"
+        }
+    }
+
+    FRAME Content layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=HUG itemSpacing="{space.sm}" {
+        TEXT Title visible=(property)"Show Title" layoutSizingHorizontal=FILL characters=(property)Title textStyle="{text.label}" textAutoResize=HEIGHT
+        TEXT Message layoutSizingHorizontal=FILL characters=(property)Message textStyle="{text.label-small}" textAutoResize=HEIGHT
+        FRAME Action visible=(property)"Show Action" layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG paddingTop="{space.sm}" paddingRight="{space.md}" paddingBottom="{space.sm}" paddingLeft="{space.md}" cornerRadius="{radius.full}" {
+            fills "{surface.control}"
+            when alarming { fills "{surface.raised}" }
+            TEXT "Action label" characters=(property)"Action label" textStyle="{text.label-small}" textAutoResize=WIDTH_AND_HEIGHT
+        }
+    }
+}

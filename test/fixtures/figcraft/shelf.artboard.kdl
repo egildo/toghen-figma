@@ -1,0 +1,10 @@
+artboard Shelf
+
+FRAME Shelf layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG {
+    INSTANCE Box component=Holder {
+        slot Content {
+            INSTANCE Inside component=Icon
+            TEXT Caption characters=(literal)"Held"
+        }
+    }
+}

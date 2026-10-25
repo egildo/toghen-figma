@@ -1,0 +1,15 @@
+{
+  "name": "Toghen",
+  "id": "com.toghen.figma",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "permissions": ["teamlibrary"],
+  "enablePrivatePluginApi": true,
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["ws://localhost:3055"]
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "version": "2025-11-01",
+  "name": "demo",
+  "description": "Toghen ecosystem starter design system – exercises all token types, aliases, composites, and light/dark theming.",
+
+  "sets": {
+
+    "primitives": {
+      "description": "Raw palette values. Nothing downstream should reference these by end-user name.",
+      "$extensions": {
+        "com.toghen": { "version": "1.0.0" }
+      },
+      "sources": [
+        {
+          "color": {
+            "$type": "color",
+            "blue-500": {
+              "$value": { "colorSpace": "srgb", "components": [0, 0.4, 0.8], "hex": "#0066cc" },
+              "$description": "Primary blue"
+            },
+            "blue-700": {
+              "$value": { "colorSpace": "srgb", "components": [0, 0.302, 0.6], "hex": "#004d99" },
+              "$description": "Dark blue"
+            },
+            "red-500": {
+              "$value": { "colorSpace": "srgb", "components": [0.8, 0.2, 0], "hex": "#cc3300" },
+              "$description": "Error red"
+            },
+            "green-500": {
+              "$value": { "colorSpace": "srgb", "components": [0.133, 0.6, 0.133], "hex": "#229922" },
+              "$description": "Success green"
+            },
+            "grey-050": {
+              "$value": { "colorSpace": "srgb", "components": [0.973, 0.976, 0.98], "hex": "#f8f9fa" },
+              "$description": "Near-white"
+            },
+            "grey-200": {
+              "$value": { "colorSpace": "srgb", "components": [0.878, 0.878, 0.878], "hex": "#e0e0e0" },
+              "$description": "Light border"
+            },
+            "grey-600": {
+              "$value": { "colorSpace": "srgb", "components": [0.459, 0.459, 0.459], "hex": "#757575" },
+              "$description": "Muted text"
+            },
+            "grey-900": {
+              "$value": { "colorSpace": "srgb", "components": [0.102, 0.102, 0.18], "hex": "#1a1a2e" },
+              "$description": "Near-black"
+            },
+            "white": {
+              "$value": { "colorSpace": "srgb", "components": [1, 1, 1], "hex": "#ffffff" }
+            },
+            "black": {
+              "$value": { "colorSpace": "srgb", "components": [0, 0, 0], "hex": "#000000" }
+            }
+          },
+
+          "spacing": {
+            "$type": "dimension",
+            "xs":  { "$value": { "value": 4,  "unit": "px" } },
+            "sm":  { "$value": { "value": 8,  "unit": "px" } },
+            "md":  { "$value": { "value": 16, "unit": "px" } },
+            "lg":  { "$value": { "value": 32, "unit": "px" } },
+            "xl":  { "$value": { "value": 64, "unit": "px" } }
+          },
+
+          "radius": {
+            "$type": "dimension",
+            "sm":  { "$value": { "value": 4,  "unit": "px" } },
+            "md":  { "$value": { "value": 8,  "unit": "px" } },
+            "lg":  { "$value": { "value": 16, "unit": "px" } },
+            "full": { "$value": { "value": 9999, "unit": "px" }, "$description": "Pill shape" }
+          }
+        }
+      ]
+    },
+
+    "typography": {
+      "description": "Font families, sizes, weights, and composite typography tokens.",
+      "sources": [
+        {
+          "font": {
+            "family": {
+              "$type": "fontFamily",
+              "sans":  { "$value": ["Inter", "system-ui", "sans-serif"] },
+              "mono":  { "$value": ["JetBrains Mono", "Fira Code", "monospace"] }
+            },
+            "size": {
+              "$type": "dimension",
+              "xs":   { "$value": { "value": 12, "unit": "px" } },
+              "sm":   { "$value": { "value": 14, "unit": "px" } },
+              "base": { "$value": { "value": 16, "unit": "px" } },
+              "lg":   { "$value": { "value": 20, "unit": "px" } },
+              "xl":   { "$value": { "value": 28, "unit": "px" } },
+              "2xl":  { "$value": { "value": 36, "unit": "px" } }
+            },
+            "weight": {
+              "$type": "fontWeight",
+              "normal": { "$value": 400 },
+              "medium": { "$value": 500 },
+              "bold":   { "$value": 700 }
+            }
+          },
+          "typo": {
+            "$type": "typography",
+            "body": {
+              "$value": {
+                "fontFamily": "{font.family.sans}",
+                "fontSize":  { "value": 16, "unit": "px" },
+                "fontWeight": 400,
+                "letterSpacing": { "value": 0, "unit": "px" },
+                "lineHeight": 1.6
+              },
+              "$description": "Default body text"
+            },
+            "heading": {
+              "$value": {
+                "fontFamily": "{font.family.sans}",
+                "fontSize":  { "value": 28, "unit": "px" },
+                "fontWeight": 700,
+                "letterSpacing": { "value": -0.5, "unit": "px" },
+                "lineHeight": 1.2
+              },
+              "$description": "Section headings"
+            },
+            "caption": {
+              "$value": {
+                "fontFamily": "{font.family.sans}",
+                "fontSize":  { "value": 12, "unit": "px" },
+                "fontWeight": 400,
+                "letterSpacing": { "value": 0.2, "unit": "px" },
+                "lineHeight": 1.4
+              },
+              "$description": "Captions and helper text"
+            }
+          }
+        }
+      ]
+    },
+
+    "effects": {
+      "description": "Shadow and gradient composite tokens.",
+      "sources": [
+        {
+          "shadow": {
+            "$type": "shadow",
+            "sm": {
+              "$value": {
+                "color": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.1 },
+                "offsetX": { "value": 0, "unit": "px" },
+                "offsetY": { "value": 1, "unit": "px" },
+                "blur":    { "value": 3, "unit": "px" },
+                "spread":  { "value": 0, "unit": "px" }
+              },
+              "$description": "Subtle card shadow"
+            },
+            "md": {
+              "$value": {
+                "color": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.15 },
+                "offsetX": { "value": 0, "unit": "px" },
+                "offsetY": { "value": 4, "unit": "px" },
+                "blur":    { "value": 12, "unit": "px" },
+                "spread":  { "value": -2, "unit": "px" }
+              },
+              "$description": "Elevated element shadow"
+            },
+            "lg": {
+              "$value": {
+                "color": { "colorSpace": "srgb", "components": [0, 0, 0], "alpha": 0.25 },
+                "offsetX": { "value": 0, "unit": "px" },
+                "offsetY": { "value": 8, "unit": "px" },
+                "blur":    { "value": 24, "unit": "px" },
+                "spread":  { "value": -4, "unit": "px" }
+              },
+              "$description": "Modal / overlay shadow"
+            }
+          },
+          "gradient": {
+            "$type": "gradient",
+            "brand": {
+              "$value": [
+                { "color": { "colorSpace": "srgb", "components": [0, 0.4, 0.8] }, "position": 0 },
+                { "color": { "colorSpace": "srgb", "components": [0, 0.302, 0.6] }, "position": 1 }
+              ],
+              "$description": "Brand blue gradient"
+            }
+          }
+        }
+      ]
+    },
+
+    "semantic": {
+      "description": "Semantic aliases and component-level tokens. Light-mode defaults.",
+      "sources": [
+        {
+          "color": {
+            "$type": "color",
+            "brand": {
+              "primary":      { "$value": "{color.blue-500}", "$description": "Primary brand colour" },
+              "primary-dark": { "$value": "{color.blue-700}", "$description": "Hover / pressed" },
+              "danger":       { "$value": "{color.red-500}",  "$description": "Destructive actions" },
+              "success":      { "$value": "{color.green-500}", "$description": "Positive feedback" }
+            },
+            "bg": {
+              "page":    { "$value": "{color.white}",    "$description": "Page background" },
+              "surface": { "$value": "{color.grey-050}", "$description": "Card / panel background" }
+            },
+            "fg": {
+              "default": { "$value": "{color.grey-900}", "$description": "Body text" },
+              "muted":   { "$value": "{color.grey-600}", "$description": "Secondary text" }
+            },
+            "border": {
+              "default": { "$value": "{color.grey-200}", "$description": "Default border" }
+            }
+          },
+          "component": {
+            "button": {
+              "$type": "color",
+              "bg":       { "$value": "{color.brand.primary}" },
+              "bg-hover": { "$value": "{color.brand.primary-dark}" },
+              "danger":   { "$value": "{color.brand.danger}" },
+              "text":     { "$value": "{color.white}" }
+            },
+            "card": {
+              "$type": "color",
+              "bg":     { "$value": "{color.bg.surface}" },
+              "border": { "$value": "{color.border.default}" }
+            }
+          }
+        }
+      ]
+    }
+  },
+
+  "modifiers": {
+    "theme": {
+      "description": "Light / dark colour scheme.",
+      "contexts": {
+        "light": [
+          { "$ref": "#/sets/semantic" }
+        ],
+        "dark": [
+          {
+            "color": {
+              "$type": "color",
+              "bg": {
+                "page":    { "$value": "{color.grey-900}" },
+                "surface": {
+                  "$value": { "colorSpace": "srgb", "components": [0.141, 0.141, 0.204], "hex": "#242434" },
+                  "$description": "Dark surface"
+                }
+              },
+              "fg": {
+                "default": { "$value": "{color.white}" },
+                "muted":   { "$value": "{color.grey-200}" }
+              },
+              "border": {
+                "default": {
+                  "$value": { "colorSpace": "srgb", "components": [0.259, 0.259, 0.322], "hex": "#424252" },
+                  "$description": "Dark border"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "default": "light"
+    }
+  },
+
+  "resolutionOrder": [
+    { "$ref": "#/sets/primitives" },
+    { "$ref": "#/sets/typography" },
+    { "$ref": "#/sets/effects" },
+    { "$ref": "#/sets/semantic" },
+    { "$ref": "#/modifiers/theme" }
+  ]
+}

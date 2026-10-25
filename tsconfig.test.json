@@ -1,0 +1,17 @@
+{
+  // Tests, as they run under the Node test runner.
+  //
+  // ES2022 because the tests legitimately use modern built-ins; compiling them
+  // as ES2017 alongside plugin code produced 22 errors for `Array.prototype.at`
+  // alone. `main` and `shared` are included because the tests import them —
+  // they are checked here under Node's lib as well as under the sandbox's in
+  // tsconfig.plugin.json, which is what catches an accidental Node dependency
+  // in plugin code. `scripts` holds dev tooling that imports the same engines, and `cli` the command that prints a component script.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["@figma/plugin-typings", "node"]
+  },
+  "include": ["test", "scripts", "cli", "main", "shared"]
+}

@@ -1,0 +1,64 @@
+component Shell
+description "The outer layout of a screen: a header, a nav rail, the content and an aside."
+
+properties {
+    VARIANT Columns "grow fixed" "fixed grow" "grow share" single
+    VARIANT "Header in" page content
+    BOOLEAN "Show Nav" default=#true
+    BOOLEAN "Show Aside" default=#true
+    SLOT Header description="The title and its commands."
+    SLOT Nav description="The rail."
+    SLOT Content description="What the screen is for."
+    SLOT Aside description="The panel beside the content."
+}
+exclude Columns=single "Header in"=content
+
+guard fixed-grow { is (input)Columns "fixed grow" }
+guard grow-share { is (input)Columns "grow share" }
+guard single { is (input)Columns single }
+guard header-in-content { is (input)"Header in" content }
+guard header-in-page { not header-in-content }
+
+// The header region sits in a different parent per variant, so it is written once and called where it goes.
+define header-region {
+    // The hairline between regions has no token of its own.
+    FRAME "Header region" layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=HUG paddingTop="{space.lg}" paddingBottom="{space.md}" strokeBottomWeight=(literal)1 {
+        strokes "{border.subtle}"
+        SLOT Header layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=HUG minHeight=(literal)48 clipsContent=#false
+    }
+}
+
+// A layout takes its size from the screen in code; Figma needs one.
+FRAME Shell layoutMode=VERTICAL width=(literal)1440 height=(literal)900 {
+    fills "{surface.page}"
+    when header-in-page { +header-region }
+
+    FRAME Body layoutMode=HORIZONTAL layoutSizingHorizontal=FILL layoutSizingVertical=FILL {
+        FRAME "Nav region" visible=(property)"Show Nav" layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=FILL strokeRightWeight=(literal)1 {
+            strokes "{border.subtle}"
+            SLOT Nav layoutMode=VERTICAL layoutSizingVertical=FILL minWidth=(literal)240 clipsContent=#false
+        }
+
+        FRAME Lanes layoutMode=GRID layoutSizingHorizontal=FILL layoutSizingVertical=FILL {
+            gridRowSizes { FLEX; }
+            gridColumnSizes { FLEX; HUG; }
+            when fixed-grow { gridColumnSizes { HUG; FLEX; } }
+            when grow-share { gridColumnSizes { FLEX 1; FLEX 1.618; } }
+
+            FRAME "Main lane" layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=FILL paddingLeft="{space.lg}" paddingRight="{space.lg}" {
+                grid row=0 column=0
+                when header-in-content { +header-region }
+                SLOT Content layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=FILL clipsContent=#false
+            }
+
+            FRAME "Aside region" visible=(property)"Show Aside" layoutMode=VERTICAL layoutSizingHorizontal=FILL layoutSizingVertical=FILL strokeLeftWeight=(literal)1 {
+                grid row=0 column=1
+                when single visible=#false
+                strokes "{border.subtle}"
+                SLOT Aside layoutMode=VERTICAL layoutSizingVertical=FILL minWidth=(literal)384 clipsContent=#false {
+                    when grow-share minWidth=#null
+                }
+            }
+        }
+    }
+}

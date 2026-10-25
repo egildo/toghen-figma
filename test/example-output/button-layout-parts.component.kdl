@@ -1,0 +1,9 @@
+component Button tokens="{button}" layout=parts
+
+properties {
+    TEXT Label default="Save"
+}
+
+FRAME Button layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER {
+    TEXT Caption tokens="{button}" characters=(property)Label textAutoResize=WIDTH_AND_HEIGHT
+}

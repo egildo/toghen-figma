@@ -1,0 +1,68 @@
+component Stepper
+description "A row of three steps that shows how far along a short process is."
+
+properties {
+    VARIANT Progress first second third
+    VARIANT Size comfortable compact
+    BOOLEAN "Show Third" default=#true
+    TEXT "First label" default="Details"
+    TEXT "Second label" default="Review"
+    TEXT "Third label" default="Done"
+}
+
+guard compact { is (input)Size compact }
+
+// One step, written once. `at` is the axis value the caller hands in, `here` the value at which this step is the
+// current one, and `done-at` and `also-done-at` the values at which it is behind us. A definition is closed, so
+// the guards it needs are written in it. The caller's children land in `block`.
+define step id at here done-at=#null also-done-at=#null shown=#true {
+    guard current { is (input)at (input)here }
+    guard done { is (input)at (input)done-at (input)also-done-at }
+    guard upcoming { all { not current; not done } }
+
+    FRAME (input)id visible=(input)shown layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER paddingTop="{space.sm}" paddingRight="{space.md}" paddingBottom="{space.sm}" paddingLeft="{space.md}" cornerRadius="{radius.full}" strokeWeight=(literal)1 { // a hairline: no token names it
+        strokes "{border.subtle}"
+        when current {
+            fills "{surface.accent}"
+            strokes "{border.strong}"
+        }
+        else done { fills "{surface.raised}" }
+        else { fills "{surface.muted}" }
+        // Steps still to come are dimmed. No opacity token exists for it.
+        when upcoming opacity=(literal)0.6
+        block
+    }
+}
+
+// The line between two steps, filled once the step before it is behind us.
+define link id at done-at also-done-at=#null shown=#true {
+    guard done { is (input)at (input)done-at (input)also-done-at }
+
+    // The line is 24 by 2 by design, not by token.
+    FRAME (input)id visible=(input)shown layoutMode=NONE width=(literal)24 height=(literal)2 {
+        fills "{surface.muted}"
+        when done { fills "{surface.accent}" }
+    }
+}
+
+FRAME Stepper layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER itemSpacing="{space.md}" {
+    when compact itemSpacing="{space.sm}" { modes Scale=small }
+
+    +step id="Step one" at=(input)Progress here=first done-at=second also-done-at=third {
+        TEXT "Step one label" characters=(property)"First label" textStyle="{text.label}" textAutoResize=WIDTH_AND_HEIGHT {
+            when compact textStyle="{text.label-small}"
+        }
+    }
+    +link id="Link one" at=(input)Progress done-at=second also-done-at=third
+    +step id="Step two" at=(input)Progress here=second done-at=third {
+        TEXT "Step two label" characters=(property)"Second label" textStyle="{text.label}" textAutoResize=WIDTH_AND_HEIGHT {
+            when compact textStyle="{text.label-small}"
+        }
+    }
+    +link id="Link two" at=(input)Progress done-at=third shown=(property)"Show Third"
+    +step id="Step three" at=(input)Progress here=third shown=(property)"Show Third" {
+        TEXT "Step three label" characters=(property)"Third label" textStyle="{text.label}" textAutoResize=WIDTH_AND_HEIGHT {
+            when compact textStyle="{text.label-small}"
+        }
+    }
+}

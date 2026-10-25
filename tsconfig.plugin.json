@@ -1,0 +1,19 @@
+{
+  // Plugin code, as it runs inside Figma's sandbox.
+  //
+  // `types` omits "node" on purpose: the sandbox has no Node globals, so
+  // referencing `process` or `Buffer` here should be a compile error rather
+  // than something that type-checks and then fails at runtime.
+  //
+  // `ui/` is not included — it is plain JavaScript, and with `allowJs` off it
+  // was never checked by the old combined config either. Type-checking it would
+  // mean either JSDoc annotations or a TypeScript migration; that is a separate
+  // decision, not something to smuggle in here.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017"],
+    "types": ["@figma/plugin-typings"]
+  },
+  "include": ["main", "shared"]
+}

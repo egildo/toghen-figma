@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Toghen</title>
+    <!-- INJECT_CSS -->
+  </head>
+  <body>
+    <!--
+      The shell, per ux-map.md:
+        tab strip  — choosing which pane is in front, nothing else
+        main       — the active pane, the one scroll region (R1)
+        results    — everything a command produces, shared by every pane (R2)
+        status bar — the plugin's own condition, one line
+      Each element draws itself from the state; see render.js.
+    -->
+    <tg-tabs aria-label="Panes"></tg-tabs>
+    <main>
+      <tg-pane-load></tg-pane-load>
+      <tg-pane-sync hidden></tg-pane-sync>
+      <tg-pane-tokens hidden></tg-pane-tokens>
+      <tg-pane-apply hidden></tg-pane-apply>
+      <tg-pane-build hidden></tg-pane-build>
+    </main>
+    <tg-results class="is-collapsed"></tg-results>
+    <tg-status-bar></tg-status-bar>
+    <tg-popover hidden></tg-popover>
+    <div id="window-grip" class="window-grip" title="Drag to resize"></div>
+    <!-- INJECT_JS -->
+  </body>
+</html>

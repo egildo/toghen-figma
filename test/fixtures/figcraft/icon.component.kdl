@@ -1,0 +1,6 @@
+component Icon
+description "A square mark, in the danger colour."
+
+FRAME Icon width=(literal)16 height=(literal)16 cornerRadius="{radius.sm}" {
+    fills "{color.brand.danger}"
+}

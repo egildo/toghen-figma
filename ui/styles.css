@@ -1,0 +1,1268 @@
+/*
+ * The plugin's stylesheet: the application, and only the application.
+ *
+ * The design system (`@toghen/ui`) comes first in the page and holds every
+ * component: buttons, fields, chips, cards, callouts, tabs, rows, tables, the
+ * dot, the icon. This file is unlayered and comes after, so it can adjust a
+ * component where the application must; it never redraws one. What it keeps is
+ * the layout of the shell and of the panes, the token browser's columns, the
+ * result surface, the status bar, the popover's place, and the few parts of
+ * the application that no component names.
+ *
+ * Every size, colour, radius and face is a design-system token (`--tg-*`). What
+ * is written here as a number is something the token document does not name:
+ * a weight, a column's width, the point at which the tab strip drops its icons.
+ */
+
+/* ─── Ground ─────────────────────────────────────────────────────────── */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--tg-bg-base);
+  color: var(--tg-text-1);
+  font: var(--tg-text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+/* Focus on what the application draws itself; the components draw their own. */
+.spine:focus-visible,
+tg-results .bar:focus-visible,
+tg-dot[tabindex]:focus-visible {
+  outline: var(--tg-bw-2) solid var(--tg-accent-bg);
+  outline-offset: var(--tg-off-out);
+}
+
+/* Words in a tone, and nothing else about them. */
+.muted {
+  color: var(--tg-text-2);
+}
+
+.faint {
+  color: var(--tg-text-3);
+  font-size: var(--tg-fs-1);
+}
+
+.strong {
+  font-weight: 500;
+}
+
+.err {
+  color: var(--tg-status-err-text);
+}
+
+.warn {
+  color: var(--tg-status-warn-text);
+}
+
+.push {
+  margin-left: auto;
+}
+
+/* A dot that opens something says so to the pointer. */
+tg-dot[data-path] {
+  cursor: pointer;
+}
+
+/* ─── Adjustments to the design system's components ──────────────────── */
+
+/* A button that holds a path or a name reads in the code face. */
+.tg-button[data-text='code'] {
+  font: var(--tg-text-code);
+}
+
+/* The drift count beside a sync line is a link in the colour of drift. */
+.tg-button.warn[data-variant='link'] {
+  --tg-button-link-color: var(--tg-status-warn-text);
+}
+
+/* A row's actions sit together. */
+tg-row > [data-part='trailing'] {
+  gap: var(--tg-sp-1-5);
+}
+
+/* The rows of a card are parted by a hairline. */
+tg-card tg-row + tg-row {
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+/* What a card's row says may hold controls and a second sentence, so its words wrap instead of being cut. */
+:is(tg-card tg-row, tg-card tg-row > [data-part='summary']) > [data-part='label'] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--tg-sp-2);
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: var(--tg-lh-normal);
+}
+
+/* ─── The shell ──────────────────────────────────────────────────────── */
+
+tg-tabs {
+  flex: none;
+}
+
+/*
+ * R7: one more pane fits at the minimum width once the icons step aside. The strip gives up its own inset and each
+ * tab keeps 4px a side, so two long labels side by side still have 8px between them: measured at 320px, five labels
+ * and a sixth as long as Templates fit, whole, on one line.
+ */
+@media (max-width: 400px) {
+  tg-tabs {
+    padding-inline: var(--tg-sp-0);
+  }
+
+  tg-tabs > button {
+    padding-inline: var(--tg-sp-1);
+  }
+
+  tg-tabs > button .tg-icon {
+    display: none;
+  }
+}
+
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* A pane fills the scroll region, so what belongs at its foot can sit there. */
+main > * {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+
+.pane-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  gap: var(--tg-sp-3);
+  padding: var(--tg-sp-3);
+}
+
+.empty-line {
+  padding: var(--tg-sp-6) var(--tg-sp-3);
+  color: var(--tg-text-2);
+  text-align: center;
+}
+
+/* What sits at the foot of a pane when there is room, and follows when not. */
+.push-down {
+  margin-top: auto;
+}
+
+/* ─── The Load and Sync panes ────────────────────────────────────────── */
+
+tg-card.identity > [data-part='body'] {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--tg-sp-3);
+  padding: var(--tg-sp-3);
+}
+
+tg-card.identity.empty > [data-part='body'] {
+  align-items: center;
+}
+
+.identity .placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tg-sz-9);
+  height: var(--tg-sz-9);
+  flex: none;
+  border: var(--tg-bw-ring) dashed var(--tg-line-strong);
+  border-radius: var(--tg-r-2);
+  color: var(--tg-text-3);
+}
+
+.identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.identity-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tg-sp-2);
+  min-width: 0;
+}
+
+.identity h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.identity .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tg-sp-1-5);
+}
+
+/* The dropzone's own button is a span: the whole bar is the button. */
+.tg-dropzone .tg-button {
+  pointer-events: none;
+}
+
+/* A design system loaded before: a row that loads, and a Forget that shows when the row is looked at or reached. */
+tg-card tg-row[data-recent] > [data-part='summary'] > [data-part='label'] {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: var(--tg-sp-0);
+  line-height: var(--tg-lh-tight);
+}
+
+.recent-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tg-sp-1-5);
+}
+
+tg-row[data-recent] .meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tg-text-2);
+  font-size: var(--tg-fs-1);
+}
+
+tg-row[data-recent] .forget {
+  opacity: 0;
+}
+
+tg-row[data-recent]:is(:hover, :focus-within) .forget {
+  opacity: 1;
+}
+
+/* Choose a folder sits under the dropzone, at its end. */
+.pick-folder {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--tg-sp-1-5));
+}
+
+/* The collection name of picked token files fills its row. */
+tg-card.pick .tg-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* An overrides map: paths wrap rather than run under the pane's edge (R1), and a key that matched nothing keeps its words whole (R4). */
+.overrides :is(th, td) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  padding-inline: calc(var(--tg-sp-inset) + var(--tg-bw-2)) var(--tg-sp-2);
+}
+
+.overrides td[data-tone] .tg-icon {
+  vertical-align: middle;
+}
+
+tg-card .overrides tr:last-child > td {
+  border-bottom-width: var(--tg-bw-0);
+}
+
+/* The collections the document would build, beside what Figma holds. */
+tg-card tg-row + .collections {
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+tg-card .collections tr:last-child > * {
+  border-bottom-width: var(--tg-bw-0);
+}
+
+.collections td {
+  padding-inline: var(--tg-sp-1) var(--tg-sp-2);
+}
+
+.collections td:first-child {
+  width: calc(var(--tg-sp-4) + var(--tg-sp-inset) + var(--tg-bw-2));
+  padding-inline: calc(var(--tg-sp-inset) + var(--tg-bw-2)) var(--tg-sp-0);
+}
+
+.collections td.modes {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: var(--tg-text-body);
+  color: var(--tg-text-2);
+}
+
+.collections td.num {
+  text-align: right;
+  color: var(--tg-text-2);
+}
+
+.collections td:last-child {
+  padding-inline-end: var(--tg-sp-3);
+}
+
+.collections .err {
+  margin-left: var(--tg-sp-1-5);
+}
+
+/* ─── The result surface ─────────────────────────────────────────────── */
+
+tg-results {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: var(--results-height, 44vh);
+  border-top: var(--tg-bw-1) solid var(--tg-line-strong);
+  background: var(--tg-bg-base);
+}
+
+tg-results.has-rows {
+  height: var(--results-height, 62vh);
+}
+
+tg-results.is-collapsed {
+  height: auto;
+  background: var(--tg-bg-card);
+}
+
+tg-results .splitter {
+  position: absolute;
+  top: calc(var(--tg-sz-2) / -2);
+  left: 0;
+  right: 0;
+  height: var(--tg-sz-2);
+  display: flex;
+  justify-content: center;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+tg-results .splitter span {
+  width: 32px;
+  height: 3px;
+  margin-top: var(--tg-bw-2);
+  border-radius: var(--tg-bw-2);
+  background: var(--tg-line-strong);
+}
+
+tg-results.is-collapsed .splitter {
+  display: none;
+}
+
+tg-results .surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+tg-results .bar {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  min-height: var(--tg-h-bar);
+  padding: 0 var(--tg-sp-3);
+  flex: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+tg-results .bar .title {
+  font-weight: 600;
+  flex: none;
+}
+
+/* The source gives way; the counts never do (R12). */
+tg-results .bar .source {
+  color: var(--tg-text-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+tg-results .bar .source.none {
+  color: var(--tg-text-3);
+}
+
+/* The counts wrap onto a second line rather than run past the window's edge (R12). */
+tg-results .bar .chips {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--tg-sp-1);
+  flex: 0 1 auto;
+}
+
+tg-results .bar .note {
+  margin-left: auto;
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-3);
+  flex: none;
+}
+
+tg-results .chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tg-sp-1);
+  padding: 0 var(--tg-sp-3) var(--tg-sp-2);
+  flex: none;
+}
+
+tg-results .chips-row .hint {
+  margin-left: auto;
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-3);
+}
+
+tg-results .rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-card);
+}
+
+/* A result: a dense row for the line, and under it, for a reported problem, the message whole (R4). */
+.result-row {
+  display: flex;
+  flex-direction: column;
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.result-row .kind {
+  width: var(--tg-w-kind);
+  flex: none;
+  font: var(--tg-text-code);
+  font-weight: 500;
+  color: var(--tg-text-2);
+}
+
+.kind.ok {
+  color: var(--tg-status-ok);
+}
+
+.kind.skip,
+.kind.warn {
+  color: var(--tg-status-warn-text);
+}
+
+.kind.err {
+  color: var(--tg-status-err-text);
+}
+
+.kind.quiet {
+  color: var(--tg-text-3);
+}
+
+/*
+ * A path's right end is its leaf, the end that matters: the cell is laid out
+ * right to left so the ellipsis falls at the start, and `bdi` keeps the path
+ * itself reading left to right (R12).
+ */
+.result-row .path {
+  direction: rtl;
+  text-align: left;
+  font: var(--tg-text-code);
+  line-height: var(--tg-h-row-dense);
+}
+
+.result-row .reason {
+  flex: none;
+  max-width: 45%;
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-3);
+}
+
+.result-row.quiet .path {
+  color: var(--tg-text-3);
+}
+
+.result-row.problem {
+  padding-bottom: var(--tg-sp-1-5);
+}
+
+.result-row.problem-err {
+  background: var(--tg-status-err-bg);
+}
+
+.result-row.problem-warn {
+  background: var(--tg-status-warn-bg);
+}
+
+.result-row .message {
+  padding: 0 var(--tg-sp-3) 0 calc(var(--tg-sp-inset) + var(--tg-w-kind) + var(--tg-sp-2));
+  border-left: var(--tg-bw-2) solid;
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-1);
+}
+
+.result-row.problem-err .message {
+  border-left-color: var(--tg-status-err-dot);
+}
+
+.result-row.problem-warn .message {
+  border-left-color: var(--tg-status-warn-dot);
+}
+
+.allow-breaking {
+  padding: var(--tg-sp-1-5) var(--tg-sp-3) var(--tg-sp-2) calc(var(--tg-sp-3) + var(--tg-w-kind) + var(--tg-sp-2));
+  border-left: var(--tg-bw-2) solid var(--tg-status-err-dot);
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-status-err-bg);
+}
+
+tg-results .more {
+  display: flex;
+  width: 100%;
+  height: var(--tg-h-row-dense);
+  border-radius: var(--tg-bw-0);
+}
+
+tg-results .footer {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  min-height: calc(var(--tg-h-ctl) + var(--tg-sp-3));
+  padding: var(--tg-sp-1-5) var(--tg-sp-3);
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-base);
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-2);
+  flex: none;
+}
+
+tg-results .footer .tg-button {
+  margin-left: auto;
+}
+
+tg-results .footer .mark.err {
+  color: var(--tg-status-err-dot);
+}
+
+tg-results .footer .progress {
+  font-family: var(--tg-font-code);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── The status bar ─────────────────────────────────────────────────── */
+
+tg-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  flex: none;
+  height: var(--tg-h-status);
+  padding: 0 var(--tg-sp-3);
+  /* The window grip sits in the corner. */
+  padding-right: calc(var(--tg-sz-5) + var(--tg-sp-2));
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-base);
+  color: var(--tg-text-2);
+  font-size: var(--tg-fs-1);
+  min-width: 0;
+}
+
+tg-status-bar .condition {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  flex: none;
+}
+
+tg-status-bar .error {
+  color: var(--tg-status-err-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+tg-status-bar .right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  flex: none;
+}
+
+tg-status-bar .command-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+}
+
+/* ─── The window grip ────────────────────────────────────────────────── */
+
+.window-grip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: var(--tg-sz-5);
+  height: var(--tg-sz-5);
+  cursor: nwse-resize;
+  z-index: 10;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--tg-line-strong) 50%, var(--tg-line-strong) 58%, transparent 58%, transparent 70%, var(--tg-line-strong) 70%, var(--tg-line-strong) 78%, transparent 78%);
+}
+
+/* ─── The Tokens pane ────────────────────────────────────────────────── */
+
+tg-pane-tokens {
+  background: var(--tg-bg-card);
+}
+
+.tokens-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-1-5);
+  padding: var(--tg-sp-2) var(--tg-sp-3);
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-base);
+  flex: none;
+}
+
+.tokens-head .controls,
+.tokens-head .counts {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  min-width: 0;
+}
+
+.tokens-head .counts {
+  flex-wrap: wrap;
+  color: var(--tg-text-2);
+  font-size: var(--tg-fs-1);
+}
+
+.tokens-head .looked {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-1);
+  color: var(--tg-text-3);
+  font-size: var(--tg-fs-1);
+  white-space: nowrap;
+}
+
+.tokens-head.wide {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  height: var(--tg-sz-9);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.tokens-head.wide .find {
+  flex: none;
+  width: 240px;
+}
+
+.tokens-head.wide .counts {
+  flex-wrap: nowrap;
+}
+
+.find {
+  flex: 1;
+  background: var(--tg-bg-card);
+}
+
+/* The browser: the pane's one horizontal scroll region, and only when a column does not fit. */
+.browser {
+  flex: 1 0 auto;
+  display: flex;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.browser.overflow {
+  overflow-x: auto;
+}
+
+.browser::-webkit-scrollbar {
+  height: var(--tg-sz-2);
+}
+
+.browser::-webkit-scrollbar-thumb {
+  border-radius: var(--tg-bw-2);
+  background: var(--tg-line-strong);
+}
+
+.strip {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.spine {
+  width: var(--tg-w-spine);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tg-sp-1-5);
+  padding: var(--tg-sp-2) 0;
+  border: 0;
+  border-right: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-sunken);
+  color: var(--tg-text-2);
+  cursor: pointer;
+}
+
+.spine:hover {
+  background: var(--tg-bg-hover);
+}
+
+.spine-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font: var(--tg-text-label);
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.column {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.column[style*='flex'] {
+  border-right: 0;
+}
+
+.band {
+  height: var(--tg-sp-6);
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  padding: 0 var(--tg-sp-3);
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-base);
+  color: var(--tg-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  flex: none;
+}
+
+.band .band-count {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--tg-text-3);
+}
+
+.band tg-dot {
+  margin-left: auto;
+}
+
+/* A column's rows keep their height, and a name or a value that does not fit is cut at its end. */
+.column tg-row {
+  flex: none;
+  min-width: 0;
+}
+
+/* The groups and the tokens of a column are parted by a hairline. */
+.column tg-row[data-open-group] + tg-row[data-open-token] {
+  margin-top: var(--tg-sp-1);
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.column tg-row .state-word {
+  font-size: var(--tg-fs-1);
+  white-space: nowrap;
+}
+
+/* The open token's detail: in its row, when narrow, or a panel to the right. */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-2);
+  font: var(--tg-text-small);
+}
+
+.detail.panel {
+  flex: 1;
+  min-width: 0;
+  padding: var(--tg-sp-3) var(--tg-sp-4);
+  background: var(--tg-bg-sunken);
+}
+
+.detail.panel.empty {
+  justify-content: center;
+  text-align: center;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  min-width: 0;
+}
+
+.panel-head h2 {
+  font-family: var(--tg-font-code);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The table of modes, and the key and value beside it, sit in the detail without a box of their own. */
+.detail .tg-table :is(th, td),
+.tpl-detail .tg-table :is(th, td) {
+  height: var(--tg-h-row-dense);
+}
+
+.detail.in-place .tg-table :is(th, td):first-child,
+.tpl-detail .tg-table :is(th, td):first-child {
+  padding-inline-start: var(--tg-sp-0);
+}
+
+.detail.panel .tg-table.modes {
+  background: var(--tg-bg-card);
+  border: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.modes td:last-child,
+.modes th:last-child {
+  width: var(--tg-sz-4);
+}
+
+.modes .tg-swatch {
+  margin-right: var(--tg-sp-1);
+  vertical-align: middle;
+}
+
+.edges :is(th, td) {
+  white-space: normal;
+  vertical-align: baseline;
+}
+
+.edges th {
+  width: 56px;
+  font-weight: 400;
+  white-space: nowrap;
+  border-bottom-width: var(--tg-bw-0);
+}
+
+.edges td {
+  border-bottom-width: var(--tg-bw-0);
+  font: var(--tg-text-small);
+}
+
+.tpl-detail .edges th {
+  width: 64px;
+}
+
+.edges .inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-1);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.edges .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tg-bw-2) var(--tg-sp-2);
+}
+
+.detail .actions,
+.tpl-detail .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--tg-sp-1-5);
+}
+
+.detail.panel .actions {
+  margin-top: auto;
+}
+
+.also {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--tg-sp-2);
+  border-top: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.also tg-row {
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+/* ─── The Apply pane ─────────────────────────────────────────────────── */
+
+tg-pane-apply,
+tg-pane-build {
+  background: var(--tg-bg-card);
+}
+
+.pane-body.apply,
+.pane-body.build {
+  padding: 0;
+  gap: 0;
+}
+
+.sel-head,
+.tpl-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-1-5);
+  padding: var(--tg-sp-2) var(--tg-sp-3);
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+  background: var(--tg-bg-base);
+  flex: none;
+}
+
+.sel-title,
+.tpl-title {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  min-width: 0;
+}
+
+.sel-title .tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tg-sz-8);
+  height: var(--tg-sz-8);
+  flex: none;
+  border: var(--tg-bw-1) solid var(--tg-line-strong);
+  border-radius: var(--tg-r-1);
+  background: var(--tg-bg-card);
+  color: var(--tg-text-2);
+}
+
+.sel-title .titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-0);
+  min-width: 0;
+  flex: 1;
+  line-height: var(--tg-lh-tight);
+}
+
+.sel-head h1,
+.tpl-head h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sel-title .sub {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1);
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-2);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sel-head .counts,
+.tpl-head .counts {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  flex-wrap: wrap;
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-2);
+}
+
+.sel-head .looked,
+.tpl-head .looked {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-sp-1);
+  color: var(--tg-text-3);
+  white-space: nowrap;
+}
+
+.selection-empty,
+.build-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tg-sp-3);
+  padding: var(--tg-sp-6) var(--tg-sp-3);
+  text-align: center;
+}
+
+.props {
+  display: flex;
+  flex-direction: column;
+}
+
+.node-band {
+  background: var(--tg-bg-sunken);
+}
+
+/* A property: its name in a column of its own, the token it is bound to, and where that stands. */
+.props tg-row {
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+  min-width: 0;
+}
+
+.props [data-part='leading'] {
+  width: var(--tg-sz-3);
+  flex: none;
+  justify-content: center;
+}
+
+/* A field's name as the table spells it; a long one wraps rather than losing its end (R12). */
+.props [data-part='label'] {
+  flex: none;
+  width: 112px;
+  color: var(--tg-text-2);
+  overflow-wrap: anywhere;
+}
+
+.props [data-part='value'] {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  gap: var(--tg-sp-2);
+}
+
+.props [data-part='trailing'] {
+  min-width: 0;
+}
+
+/* The token a layer is bound to is named in the working colour, not the accent. */
+.props .tg-button[data-variant='link']:not([data-bind-node]) {
+  --tg-button-link-color: var(--tg-text-1);
+  min-width: 0;
+}
+
+.props .note {
+  font-size: var(--tg-fs-1);
+  color: var(--tg-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.props .unbound {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sel-foot {
+  margin-top: auto;
+  padding: var(--tg-sp-3);
+  border-top: var(--tg-bw-1) solid var(--tg-line-strong);
+  background: var(--tg-bg-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-3);
+}
+
+/* Apply's query: its name, the field filling the line, and what it names under them. */
+.apply-query {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tg-sp-1) var(--tg-sp-2);
+}
+
+.apply-query .tg-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.apply-query > .faint {
+  flex-basis: 100%;
+}
+
+/* The kinds, and Apply's notes, wrap at the minimum width rather than run past the pane's edge (R1). */
+.apply-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tg-sp-1) var(--tg-sp-3);
+}
+
+.apply-note {
+  white-space: normal;
+}
+
+/* ─── The Build pane ─────────────────────────────────────────────────── */
+
+.tpl-row {
+  border-bottom: var(--tg-bw-1) solid var(--tg-line-1);
+}
+
+.tpl-row > [data-part='summary'] > [data-part='label'] {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: var(--tg-sp-2);
+  line-height: var(--tg-lh-normal);
+}
+
+.tpl-row > [data-part='summary'] > [data-part='value'] {
+  flex: 1 1 0;
+  text-align: right;
+}
+
+.tpl-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-2);
+  font: var(--tg-text-small);
+}
+
+.tpl-rows[data-over],
+.build-empty[data-over] {
+  background: var(--tg-bg-selected);
+  outline: var(--tg-bw-ring) dashed var(--tg-accent-bg);
+  outline-offset: calc(var(--tg-bw-ring) * -1);
+}
+
+/* The lock and the overrides map, below the rows: cards on the pane's own rhythm. */
+.build-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-3);
+  padding: var(--tg-sp-3);
+}
+
+/* A long file name or key wraps inside the detail rather than pushing the pane sideways at 320px (R1). */
+.tpl-detail td {
+  overflow-wrap: anywhere;
+}
+
+/* A blueprint's needs: a heading that says when it looked, and a table of what it needs (R15, R16). */
+.needs-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-2);
+}
+
+.needs td tg-dot {
+  vertical-align: middle;
+}
+
+/* A missing component's pick: the library's name and the button, on their own line, wrapping at the minimum width (R1). */
+.need-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tg-sp-2);
+  margin-top: var(--tg-sp-1);
+}
+
+/* The overrides map's add row: two fields that share the line, and wrap beneath each other when it is narrow. */
+.override-add > [data-part='label'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tg-sp-2);
+}
+
+.override-add .tg-field {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.overrides td.remove {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* ─── The drift popover ──────────────────────────────────────────────── */
+
+tg-popover {
+  position: fixed;
+  z-index: 20;
+  width: 316px;
+  max-width: calc(100vw - var(--tg-sp-2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-sp-2);
+  padding: var(--tg-sp-3);
+  border-radius: var(--tg-r-3);
+  background: var(--tg-bg-card);
+  box-shadow: var(--tg-shadow-pop);
+}
+
+tg-popover .pop-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  min-width: 0;
+}
+
+tg-popover .pop-head .path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+tg-popover .why {
+  font-size: var(--tg-fs-1);
+}
+
+tg-popover .actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-sp-1-5);
+  flex-wrap: wrap;
+}
+
+/* A bound token's path wraps rather than lose its leaf, the end that matters (R12, smell #51). */
+tg-pane-apply tg-row [data-part="value"] [data-goto] {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}

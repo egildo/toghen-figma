@@ -1,0 +1,39 @@
+{
+  "dryRun": false,
+  "steps": [
+    {
+      "kind": "CREATE_SET",
+      "members": 16
+    }
+  ],
+  "created": [
+    "variant=rest, state=rest, selection=rest",
+    "variant=rest, state=rest, selection=selected",
+    "variant=rest, state=hover, selection=rest",
+    "variant=rest, state=hover, selection=selected",
+    "variant=rest, state=pressed, selection=rest",
+    "variant=rest, state=pressed, selection=selected",
+    "variant=rest, state=disabled, selection=rest",
+    "variant=rest, state=disabled, selection=selected",
+    "variant=primary, state=rest, selection=rest",
+    "variant=primary, state=rest, selection=selected",
+    "variant=primary, state=hover, selection=rest",
+    "variant=primary, state=hover, selection=selected",
+    "variant=primary, state=pressed, selection=rest",
+    "variant=primary, state=pressed, selection=selected",
+    "variant=primary, state=disabled, selection=rest",
+    "variant=primary, state=disabled, selection=selected"
+  ],
+  "updated": [],
+  "deleted": [],
+  "pending": [],
+  "notes": [
+    "FRAME \"Button\" tokens=\"{button}\": \"color\" has no field on this layer in Figma, skipped",
+    "FRAME \"Button\" tokens=\"{button}\": \"font\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"backgroundColor\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"paddingBlock\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"borderRadius\" has no field on this layer in Figma, skipped"
+  ],
+  "breaking": [],
+  "warnings": []
+}

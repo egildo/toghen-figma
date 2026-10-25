@@ -1,0 +1,81 @@
+// Copied from house 0.1.0. Change it in house, then copy it out again.
+// Two-space indent and single quotes are what most of Toghen's files already used;
+// JSON and CSS are left alone: token documents, fixtures and the toghen() stylesheets
+// are written by hand, and some are compared as text.
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  // CSS is not even parsed: the toghen() directives are not CSS until @toghen/postcss resolves them.
+  "files": { "ignoreUnknown": true, "includes": ["**", "!**/*.css"] },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 140 },
+  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } },
+  "json": { "formatter": { "enabled": false }, "linter": { "enabled": false } },
+  // Two recommended rules are off, by count rather than by taste: noNonNullAssertion
+  // (about 1,100 places) and noExplicitAny (about 300, most in tests and in the
+  // Figma mocks). Each `!` and `any` was written on purpose under strict TypeScript;
+  // rewriting them all would change code without changing behaviour, which a
+  // tooling round does not do. Turn either back on when a round means to remove them.
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": { "noNonNullAssertion": "off" },
+      "suspicious": { "noExplicitAny": "off" }
+    }
+  },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "off" } } },
+  // Repository-specific: rules off for the files whose findings are all deliberate (the shared config above stays as copied).
+  "overrides": [
+    {
+      // `x ??= []` and `if (!hit) cache.set(k, (hit = compute()))` are the idioms of these files; spelling them out would only lengthen them.
+      "includes": [
+        "main/handlers/planApply.ts",
+        "main/utils/designSource.ts",
+        "main/utils/figmaCollectionIndex.ts",
+        "shared/components/groups.ts",
+        "shared/components/members.ts",
+        "shared/inputs.ts",
+        "shared/pendingNames.ts",
+        "test/support/fakeFigcraft.ts",
+        "test/support/fakeLibraries.ts",
+        "test/support/figmaMock.ts"
+      ],
+      "linter": { "rules": { "suspicious": { "noAssignInExpressions": "off" } } }
+    },
+    {
+      // The plugin builds for ES2017, which has no Object.hasOwn; Object.prototype.hasOwnProperty.call is the portable spelling.
+      "includes": [
+        "main/components/file.ts",
+        "main/engines/operationExecutor.ts",
+        "main/handlers/planApply.ts",
+        "shared/components/axes.ts",
+        "shared/components/validate.ts",
+        "shared/components/check.ts"
+      ],
+      "linter": { "rules": { "suspicious": { "noPrototypeBuiltins": "off" } } }
+    },
+    {
+      // In tests, `(x?.y as T).z` is how a test says "this must exist"; if it does not, the TypeError fails the test.
+      "includes": [
+        "test/components/axes.test.ts",
+        "test/components/background.test.ts",
+        "test/components/bindings.test.ts",
+        "test/components/readComponentFile.test.ts",
+        "test/loadDocument.test.ts"
+      ],
+      "linter": { "rules": { "correctness": { "noUnsafeOptionalChaining": "off" } } }
+    },
+    {
+      // Local helpers named after Object.prototype members (`valueOf`, `escape`, `constructor`) shadow nothing they use.
+      "includes": [
+        "scripts/check-purity.mjs",
+        "test/computedValues.test.ts",
+        "test/letterSpacing.test.ts",
+        "test/purpose.test.ts",
+        "test/support/fakeFigcraft.ts",
+        "ui/components/base.js"
+      ],
+      "linter": { "rules": { "suspicious": { "noShadowRestrictedNames": "off" } } }
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Toghen plugin preview</title>
+    <!--
+      The plugin's screen as Figma would host it: the built dist/ui.html in an
+      iframe, Figma's theme class on its <html>, and a stand-in for the main
+      thread that answers the commands it sends with fixtures. Not shipped.
+    -->
+    <style>
+      body { margin: 0; font: 12px/1.4 system-ui, sans-serif; background: #e4e4e4; color: #1e1e1e; }
+      body.dark { background: #111; color: #ddd; }
+      .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #0002; }
+      .bar strong { margin-left: 8px; }
+      button { font: inherit; padding: 3px 8px; }
+      button[aria-pressed='true'] { background: #0c8ce9; color: #fff; border-color: #0c8ce9; }
+      .stage { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; }
+      iframe { border: 0; border-radius: 8px; box-shadow: 0 2px 12px #0003; background: #fff; flex: none; }
+      #log { flex: 1; min-width: 220px; max-height: 80vh; overflow: auto; font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <strong>Theme</strong>
+      <button type="button" data-theme="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+      <strong>Window</strong>
+      <button type="button" data-size="460x720" aria-pressed="true">460 × 720</button>
+      <button type="button" data-size="980x620" aria-pressed="false">980 × 620</button>
+      <button type="button" data-size="320x600" aria-pressed="false" title="The minimum width (R7)">320 × 600</button>
+      <strong>Fixtures</strong>
+      <span id="scenes"></span>
+    </div>
+    <div class="stage">
+      <iframe id="plugin" src="/dist/ui.html" width="460" height="720" title="Plugin screen"></iframe>
+      <div id="log"></div>
+    </div>
+
+    <script type="module">
+      import { scenes, answer } from './fixtures.js';
+
+      const frame = document.getElementById('plugin');
+      const log = document.getElementById('log');
+      let theme = 'light';
+      let loaded = false;
+
+      const note = (line) => {
+        log.textContent = `${line}\n${log.textContent}`.slice(0, 20000);
+      };
+
+      /** Figma puts this class on the iframe's <html> when the window has themeColors. */
+      const applyTheme = () => {
+        const html = frame.contentDocument?.documentElement;
+        if (html) html.className = `figma-${theme}`;
+        document.body.classList.toggle('dark', theme === 'dark');
+      };
+
+      const post = (messages) => {
+        for (const message of messages) {
+          if (message.type === 'DOCUMENT_LOADED') loaded = true;
+          if (message.type === 'DOCUMENT_STATE') loaded = message.payload.loaded;
+          frame.contentWindow.postMessage({ pluginMessage: message }, '*');
+          note(`← ${message.type}`);
+        }
+      };
+
+      const resize = (width, height) => {
+        frame.width = String(width);
+        frame.height = String(height);
+      };
+
+      // The main thread, played by the fixtures.
+      window.addEventListener('message', (event) => {
+        const command = event.data?.pluginMessage;
+        if (!command || event.source !== frame.contentWindow) return;
+        note(`→ ${command.type} ${JSON.stringify(command.payload ?? {}).slice(0, 160)}`);
+        if (command.type === 'RESIZE_UI') {
+          if (command.payload.width) {
+            resize(command.payload.width, command.payload.height);
+            return;
+          }
+          // The window switch: the preset for that mode, as the main thread would apply it.
+          document.querySelector(`[data-size="${command.payload.mode === 'wide' ? '980x620' : '460x720'}"]`).click();
+        }
+        // Asynchronously, as Figma answers.
+        setTimeout(() => post(answer(command, loaded)), 120);
+      });
+
+      // The frame may have loaded before this module ran, so both.
+      frame.addEventListener('load', applyTheme);
+      applyTheme();
+
+      document.querySelectorAll('[data-theme]').forEach((button) => {
+        button.addEventListener('click', () => {
+          theme = button.dataset.theme;
+          document.querySelectorAll('[data-theme]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b === button));
+          });
+          applyTheme();
+        });
+      });
+
+      document.querySelectorAll('[data-size]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const [width, height] = button.dataset.size.split('x').map(Number);
+          document.querySelectorAll('[data-size]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b === button));
+          });
+          resize(width, height);
+        });
+      });
+
+      const holder = document.getElementById('scenes');
+      for (const name of Object.keys(scenes)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = name;
+        button.addEventListener('click', () => post(scenes[name]));
+        holder.append(button, ' ');
+      }
+
+      // For driving the page from a script: `preview.theme('dark')`, `preview.scene('Correspondence')`.
+      window.preview = {
+        theme: (name) => document.querySelector(`[data-theme="${name}"]`).click(),
+        size: (size) => document.querySelector(`[data-size="${size}"]`).click(),
+        scene: (name) => post(scenes[name]),
+        post,
+      };
+    </script>
+  </body>
+</html>

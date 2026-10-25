@@ -1,0 +1,19 @@
+component Button
+description "A button with an optional mark and a label."
+
+properties {
+    VARIANT Size small large
+    TEXT Label default="Save"
+    BOOLEAN "Show icon" default=#true
+}
+
+guard large { is (input)Size large }
+
+FRAME Button layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG counterAxisAlignItems=CENTER itemSpacing="{spacing.xs}" paddingTop="{spacing.sm}" paddingBottom="{spacing.sm}" paddingLeft="{spacing.md}" paddingRight="{spacing.md}" cornerRadius="{radius.md}" {
+    fills "{component.button.bg}"
+    when large paddingTop="{spacing.md}" paddingBottom="{spacing.md}"
+    INSTANCE Mark component=Icon visible=(property)"Show icon"
+    TEXT Caption characters=(property)Label fontSize="{font.size.sm}" {
+        fills "{component.button.text}"
+    }
+}

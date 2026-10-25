@@ -1,0 +1,23 @@
+properties (declared first, then the axes taken from the parts)
+  Label  TEXT  default "Save"
+  variant  VARIANT  rest, primary  pins the collection variant
+  state  VARIANT  rest, hover, pressed, disabled  pins the collection state
+  selection  VARIANT  rest, selected  no pin: laid out in the path
+
+16 members
+  variant=rest, state=rest, selection=rest  |  pins variant=rest state=rest  |  fill button.backgroundColor
+  variant=rest, state=rest, selection=selected  |  pins variant=rest state=rest  |  fill button.selected.backgroundColor
+  variant=rest, state=hover, selection=rest  |  pins variant=rest state=hover  |  fill button.backgroundColor
+  variant=rest, state=hover, selection=selected  |  pins variant=rest state=hover  |  fill button.selected.backgroundColor
+  variant=rest, state=pressed, selection=rest  |  pins variant=rest state=pressed  |  fill button.backgroundColor
+  variant=rest, state=pressed, selection=selected  |  pins variant=rest state=pressed  |  fill button.selected.backgroundColor
+  variant=rest, state=disabled, selection=rest  |  pins variant=rest state=disabled  |  fill button.backgroundColor
+  variant=rest, state=disabled, selection=selected  |  pins variant=rest state=disabled  |  fill button.selected.backgroundColor
+  variant=primary, state=rest, selection=rest  |  pins variant=primary state=rest  |  fill button.backgroundColor
+  variant=primary, state=rest, selection=selected  |  pins variant=primary state=rest  |  fill button.selected.backgroundColor
+  variant=primary, state=hover, selection=rest  |  pins variant=primary state=hover  |  fill button.backgroundColor
+  variant=primary, state=hover, selection=selected  |  pins variant=primary state=hover  |  fill button.selected.backgroundColor
+  variant=primary, state=pressed, selection=rest  |  pins variant=primary state=pressed  |  fill button.backgroundColor
+  variant=primary, state=pressed, selection=selected  |  pins variant=primary state=pressed  |  fill button.selected.backgroundColor
+  variant=primary, state=disabled, selection=rest  |  pins variant=primary state=disabled  |  fill button.backgroundColor
+  variant=primary, state=disabled, selection=selected  |  pins variant=primary state=disabled  |  fill button.selected.backgroundColor

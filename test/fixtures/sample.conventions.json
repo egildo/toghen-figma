@@ -1,0 +1,90 @@
+[
+  {
+    "id": "button-bg",
+    "pattern": "{component}/{variant}/bg",
+    "property": "fills[0].color",
+    "nodeTypes": ["FRAME", "COMPONENT", "INSTANCE"],
+    "variableType": "COLOR",
+    "description": "Background fill for button variants. Expects a variable named e.g. 'Button/Primary/bg' in Figma."
+  },
+  {
+    "id": "button-text-color",
+    "pattern": "{component}/{variant}/textColor",
+    "property": "fills[0].color",
+    "nodeTypes": ["TEXT"],
+    "variableType": "COLOR",
+    "description": "Text fill color for button label nodes."
+  },
+  {
+    "id": "card-bg",
+    "pattern": "{component}/bg",
+    "property": "fills[0].color",
+    "nodeTypes": ["FRAME", "COMPONENT", "INSTANCE"],
+    "variableType": "COLOR",
+    "description": "Card surface background. Maps to demo.component.card.bg."
+  },
+  {
+    "id": "card-border-color",
+    "pattern": "{component}/borderColor",
+    "property": "strokes[0].color",
+    "nodeTypes": ["FRAME", "COMPONENT", "INSTANCE"],
+    "variableType": "COLOR",
+    "description": "Card border color. Maps to demo.component.card.border."
+  },
+  {
+    "id": "frame-padding-left",
+    "pattern": "{component}/spacing/paddingLeft",
+    "property": "paddingLeft",
+    "nodeTypes": ["FRAME", "COMPONENT"],
+    "variableType": "FLOAT",
+    "description": "Left padding. Expects a FLOAT variable matching the spacing scale."
+  },
+  {
+    "id": "frame-padding-right",
+    "pattern": "{component}/spacing/paddingRight",
+    "property": "paddingRight",
+    "nodeTypes": ["FRAME", "COMPONENT"],
+    "variableType": "FLOAT",
+    "description": "Right padding."
+  },
+  {
+    "id": "frame-padding-top",
+    "pattern": "{component}/spacing/paddingTop",
+    "property": "paddingTop",
+    "nodeTypes": ["FRAME", "COMPONENT"],
+    "variableType": "FLOAT",
+    "description": "Top padding."
+  },
+  {
+    "id": "frame-padding-bottom",
+    "pattern": "{component}/spacing/paddingBottom",
+    "property": "paddingBottom",
+    "nodeTypes": ["FRAME", "COMPONENT"],
+    "variableType": "FLOAT",
+    "description": "Bottom padding."
+  },
+  {
+    "id": "frame-gap",
+    "pattern": "{component}/spacing/gap",
+    "property": "itemSpacing",
+    "nodeTypes": ["FRAME", "COMPONENT"],
+    "variableType": "FLOAT",
+    "description": "Auto-layout gap between children."
+  },
+  {
+    "id": "frame-corner-radius",
+    "pattern": "{component}/radius",
+    "property": "cornerRadius",
+    "nodeTypes": ["FRAME", "COMPONENT", "INSTANCE", "RECTANGLE"],
+    "variableType": "FLOAT",
+    "description": "Corner radius. Maps to the radius scale tokens (e.g. demo.radius.md)."
+  },
+  {
+    "id": "frame-stroke-weight",
+    "pattern": "{component}/strokeWeight",
+    "property": "strokeWeight",
+    "nodeTypes": ["FRAME", "COMPONENT", "INSTANCE"],
+    "variableType": "FLOAT",
+    "description": "Stroke / border width."
+  }
+]

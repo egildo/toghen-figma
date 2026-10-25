@@ -1,0 +1,62 @@
+{
+  "tokens": "button",
+  "groups": {
+    "button": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    }
+  },
+  "notes": [
+    "FRAME \"Button\" tokens=\"{button}\": \"color\" has no field on this layer in Figma, skipped",
+    "FRAME \"Button\" tokens=\"{button}\": \"font\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"backgroundColor\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"paddingBlock\" has no field on this layer in Figma, skipped",
+    "TEXT \"Caption\" tokens=\"{button}\": \"borderRadius\" has no field on this layer in Figma, skipped"
+  ]
+}

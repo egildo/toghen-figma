@@ -1,0 +1,12 @@
+artboard Showcase
+
+FRAME Showcase layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical=HUG itemSpacing="{spacing.md}" paddingTop="{spacing.lg}" paddingBottom="{spacing.lg}" paddingLeft="{spacing.lg}" paddingRight="{spacing.lg}" {
+    fills "{color.bg.surface}"
+    modes theme=dark
+    TEXT Title characters=(literal)"Buttons" fontSize="{font.size.lg}" {
+        fills "{color.fg.default}"
+    }
+    INSTANCE Primary component=Button {
+        set Label="Go" Size=large
+    }
+}
