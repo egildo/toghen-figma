@@ -655,6 +655,28 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     }
   });
 
+  const SLAB = join(here, 'fixtures/figcraft/slab.component.kdl');
+  const slab = `component Slab\nFRAME Slab layoutMode=VERTICAL layoutSizingHorizontal=FIXED layoutSizingVertical=HUG width="{pill.height}" {\n    FRAME Face layoutSizingHorizontal=FILL height=(literal)8\n}\n`;
+  const ROW = join(here, 'fixtures/figcraft/row.artboard.kdl');
+  const row = `artboard Row\nFRAME Row layoutMode=VERTICAL layoutSizingHorizontal=FIXED width=(literal)300 {\n    INSTANCE Filled component=Slab layoutSizingHorizontal=FILL\n}\n`;
+
+  it("lets an instance that fills go of its main's bound width, which FigCraft would keep fixed, and plans nothing on a second run", async () => {
+    const fake = await startFakeFigcraft();
+    const files = { [SAMPLE]: sample(), [SLAB]: slab, [ROW]: row };
+    const run = () => sync(fake, [], files, ['fixtures/figcraft/slab.component.kdl', 'fixtures/figcraft/row.artboard.kdl']);
+    try {
+      assert.equal((await run()).code, 0);
+      const filled = named(fake, 'INSTANCE', 'Filled');
+      assert.equal(filled.boundVariables?.width, undefined, 'the instance lets the width go');
+      assert.ok(named(fake, 'COMPONENT', 'Slab').boundVariables?.width, 'the main keeps it');
+      assert.equal(filled.sizing?.horizontal, 'fill');
+      const labels = fake.labels.length;
+      read(fake, await run(), /Row: 0 steps/, labels);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('refuses by name what is not built for FigCraft yet, before it writes anything, a dry run included', async () => {
     const fake = await startFakeFigcraft();
     const path = join(here, 'fixtures/figcraft/button.component.kdl');

@@ -103,6 +103,23 @@ export function checkLayout(layer: Layer, parent: Layer | undefined, report: Rep
     );
   }
 
+  // A frame that hugs an axis its children only fill has nothing to size it by: the target sets one of the two back
+  // (FigCraft 0.10.0 sets the child to FIXED, measured 25 October 2026), so every later run finds the file's value changed.
+  if (mode === 'HORIZONTAL' || mode === 'VERTICAL') {
+    for (const [sizing, axis] of [
+      ['layoutSizingHorizontal', 'width'],
+      ['layoutSizingVertical', 'height'],
+    ] as const) {
+      if (plain(layer, sizing) !== 'HUG') continue;
+      const flow = layer.children.filter((child) => plain(child, 'layoutPositioning') !== 'ABSOLUTE');
+      if (flow.length === 0 || !flow.every((child) => plain(child, sizing) === 'FILL')) continue;
+      report.error(
+        `${flow.map(describe).join(', ')} ${flow.length === 1 ? 'fills' : 'fill'} the ${axis} of ${what}, which hugs it: a frame cannot hug children that only fill it; give "${layer.address}" a fixed ${axis}, or a child a ${axis} of its own`,
+        fieldAt(flow[0], sizing),
+      );
+    }
+  }
+
   if (mode === 'GRID') {
     for (const field of ['gridRowSizes', 'gridColumnSizes']) {
       if (!(field in layer.fields)) report.error(`${what} is a GRID and needs ${field}`, layer.loc);

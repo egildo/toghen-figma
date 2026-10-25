@@ -351,6 +351,15 @@ function fieldCommands(batch: Batch, build: Build, ref: Ref, layer: Layer, root:
   }
 
   for (const name of ['width', 'height']) if (has(name) && value(name).kind !== 'token') writeDimension(name);
+  // An instance carries its main's bound size, and FigCraft keeps a bound size fixed whatever sizing is set beside it, so
+  // an instance that hugs or fills lets that binding go first; the main keeps it (measured 25 October 2026, 0.10.0).
+  for (const [name, size] of [
+    ['layoutSizingHorizontal', 'width'],
+    ['layoutSizingVertical', 'height'],
+  ] as const) {
+    if (layer.kind === 'INSTANCE' && has(name) && !(size in f) && ['FILL', 'HUG'].includes(plainOf(value(name)) as string))
+      bind(size, null);
+  }
   for (const name of ['layoutSizingHorizontal', 'layoutSizingVertical']) if (has(name)) writePlain(name);
   for (const name of ['minWidth', 'maxWidth', 'minHeight', 'maxHeight']) if (has(name)) writeDimension(name);
   for (const name of ['width', 'height']) if (has(name) && value(name).kind === 'token') writeDimension(name);

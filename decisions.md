@@ -1593,3 +1593,10 @@ These are the texts as they stood before the round, moved whole. The round super
 ### Moved from guide.md, *A documentation page from the repository: artboard files*
 
 1. **Build the components first.** The page instantiates them, and a `sync` or `components` run builds the component files before the artboard files. A dry run of a first-ever `sync` cannot see a component the same run would create; run the components, then the page.
+
+## Fixed: two sizing issues a consumer's FigCraft run found (25 October 2026)
+
+Released in 0.1.1. Both reported against 7.0.1 (the same code as 0.1.0), headless into FigCraft 0.10.0, and reproduced with synthetic files against `figcraft-cli` 0.10.0.
+
+- **A hugging frame whose one child fills it never settled.** FigCraft set the child back to `FIXED`, so every dry run after the first reported the child's `FILL` as changed in Figma. *Chosen:* the per-member check refuses a `HORIZONTAL` or `VERTICAL` frame that hugs an axis every child in its flow fills, at the child. *Not chosen:* writing what the target keeps, since which of the two it keeps is the target's to decide and Figma and FigCraft differ. *Measured but left alone:* FigCraft sets a filling child back to `FIXED` in a hugging frame even beside a sibling of fixed width, where Figma lets the child fill. That case is not refused; it drifts in FigCraft only, and is FigCraft's to fix.
+- **An instance set to fill kept its main's bound width.** FigCraft keeps a bound size fixed whatever sizing is set beside it, and an instance carries its main's binding. Setting `FILL` did nothing; letting the binding go first, then `FILL`, filled (letting it go after did not). *Chosen:* the FigCraft writer lets an instance's width or height binding go before writing `HUG` or `FILL` on that axis, when the file gives the instance no size of its own there. The main keeps its binding. The Figma target is unchanged: the report says Figma lets the sizing win, and this was not measured in Figma.

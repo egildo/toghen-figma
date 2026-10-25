@@ -87,3 +87,31 @@ FRAME Chip layoutMode=HORIZONTAL layoutSizingHorizontal=HUG layoutSizingVertical
     assert.deepEqual(errors(text), []);
   });
 });
+
+describe('a frame that hugs an axis its children only fill', () => {
+  const frame = (sizing: string, children: string) =>
+    `component Chip\nFRAME Chip layoutMode=VERTICAL ${sizing} {\n${children
+      .split('\n')
+      .map((line) => `    ${line}`)
+      .join('\n')}\n}\n`;
+
+  it('is refused at the child, naming both layers and the axis', () => {
+    assert.deepEqual(errors(frame('layoutSizingHorizontal=HUG', 'FRAME Face layoutMode=VERTICAL layoutSizingHorizontal=FILL')), [
+      'FRAME "Face" fills the width of FRAME "Chip", which hugs it: a frame cannot hug children that only fill it; give "Chip" a fixed width, or a child a width of its own',
+    ]);
+    assert.deepEqual(errors(frame('layoutSizingVertical=HUG', 'FRAME A layoutSizingVertical=FILL\nFRAME B layoutSizingVertical=FILL')), [
+      'FRAME "A", FRAME "B" fill the height of FRAME "Chip", which hugs it: a frame cannot hug children that only fill it; give "Chip" a fixed height, or a child a height of its own',
+    ]);
+  });
+
+  it('is a size the file says once: a child that sizes the frame, a child out of the flow, or FILL on the other axis', () => {
+    const fixed = 'FRAME Bar width=(literal)120 height=(literal)8';
+    assert.deepEqual(errors(frame('layoutSizingHorizontal=HUG', `${fixed}\nFRAME Face layoutSizingHorizontal=FILL`)), []);
+    assert.deepEqual(errors(frame('layoutSizingHorizontal=FIXED width=(literal)200', 'FRAME Face layoutSizingHorizontal=FILL')), []);
+    assert.deepEqual(errors(frame('layoutSizingHorizontal=HUG', 'FRAME Face layoutSizingVertical=FILL')), []);
+    assert.deepEqual(
+      errors(frame('layoutSizingHorizontal=HUG', `${fixed}\nFRAME Badge layoutPositioning=ABSOLUTE layoutSizingHorizontal=FILL`)),
+      [],
+    );
+  });
+});
