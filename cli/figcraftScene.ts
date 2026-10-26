@@ -386,22 +386,32 @@ export interface Copies {
 }
 
 /** Each scene's index and its views of top-level layers and copies, for the next scene to keep (`sceneOf`'s `before`). */
-const kept = new WeakMap<Scene, { index: Map<string, SceneNode>; tops: Map<FcNode, SceneNode> }>();
+const kept = new WeakMap<Scene, { index: Map<string, SceneNode>; tops: Map<FcNode, SceneNode>; viewer: { view: Keep; keep?: Keep } }>();
 
 /**
  * The pages of a FigCraft file, each with its layers, as Figma nodes. `pages` are `node.get` of each page, children
  * to the depth the layers have. What the nodes write back goes into `writes`.
  */
-export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { nodes: [], keyOf: () => undefined }, before?: Scene): Scene {
+export function sceneOf(
+  pages: FcNode[],
+  writes: Writes,
+  copies: Copies = { nodes: [], keyOf: () => undefined },
+  before?: Scene,
+  deepen?: (node: FcNode) => Promise<void>,
+): Scene {
   // With `before`, a top-level layer or a copy read as the same object is the same view: viewing every layer for each
-  // set and each artboard was half a large run's time. The index is shared, so a kept view finds what is new by id.
+  // set and each artboard was half a large run's time. The index and the viewer are shared, so a kept view finds what
+  // is new by id. The viewer holds nothing of any scene: a view's functions hold its variables, and a viewer that held a
+  // scene would keep each scene of the run alive, and every layer ever viewed in it.
   const prior = before && kept.get(before);
   const index = prior?.index ?? new Map<string, SceneNode>();
   index.clear();
+  const viewer = prior?.viewer ?? viewerOf(index, writes, deepen);
+  let previous = prior?.tops;
   const tops = new Map<FcNode, SceneNode>();
-  const keep = (node: FcNode, parent: SceneNode | null, inInstance: boolean, copyOf?: string): SceneNode => {
-    const old = prior?.tops.get(node);
-    const made = old ?? view(node, parent, inInstance, copyOf);
+  viewer.keep = (node, parent, inInstance, copyOf) => {
+    const old = previous?.get(node);
+    const made = old ?? viewer.view(node, parent, inInstance, copyOf);
     if (old) {
       (old as { parent: SceneNode | null }).parent = parent;
       const enter = (at: SceneNode): void => {
@@ -413,12 +423,26 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
     tops.set(node, made);
     return made;
   };
-  const views = pages.map((page) => view(page, null, false));
+  const views = pages.map((page) => viewer.view(page, null, false));
   // A copy's own data is the library's, as an instance's is its main's.
-  for (const copy of copies.nodes) keep(copy, null, true, copies.keyOf(String(copy.id)));
-  const scene: Scene = { pages: views, byId: (id) => index.get(id), adopt: (node, key) => view(node, null, true, key) };
-  kept.set(scene, { index, tops });
+  for (const copy of copies.nodes) viewer.keep(copy, null, true, copies.keyOf(String(copy.id)));
+  viewer.keep = undefined;
+  previous = undefined;
+  const scene: Scene = { pages: views, byId: (id) => index.get(id), adopt: (node, key) => viewer.view(node, null, true, key) };
+  kept.set(scene, { index, tops, viewer });
   return scene;
+}
+
+type Keep = (node: FcNode, parent: SceneNode | null, inInstance: boolean, copyOf?: string) => SceneNode;
+
+/**
+ * What views a FigCraft node as a Figma node, over one index of the views by id and one set of writes. `keep` is set
+ * while a scene is being built: a page's top-level layers go through it, so a scene keeps the views it can. `deepen`
+ * reads what is inside a top-level layer a shallow read left out, when a run asks for it (`loadAsync`).
+ */
+function viewerOf(index: Map<string, SceneNode>, writes: Writes, deepen?: (node: FcNode) => Promise<void>): { view: Keep; keep?: Keep } {
+  const viewer: { view: Keep; keep?: Keep } = { view };
+  return viewer;
 
   function offered(id: unknown): InstanceSwapPreferredValue {
     const node = index.get(String(id)) as (SceneNode & { key?: string }) | undefined;
@@ -570,7 +594,14 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
         writes.removed.push(node.id);
         forget();
       },
-      loadAsync: async (): Promise<void> => {},
+      // A top-level layer a shallow read left without what is inside it (a dry run that skips what has not changed)
+      // reads it when a run is about to compare it; any other layer is read already.
+      loadAsync: async (): Promise<void> => {
+        if (node.children !== undefined || !(node as { childCount?: number }).childCount || !deepen) return;
+        await deepen(node);
+        out.children = (node.children ?? []).map((child) => view(child, out as unknown as SceneNode, inside));
+        forget();
+      },
       findAllWithCriteria: (criteria: { types?: string[]; sharedPluginData?: { namespace: string; keys?: string[] } }): SceneNode[] => {
         const key = JSON.stringify(criteria);
         const kept = searched.get(key);
@@ -659,7 +690,9 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
     // What fills an instance's slot is the instance's own, with ids of its own (measured 23 October 2026), and Toghen
     // stamps what it placed there: inside a slot, a layer is no longer inside the instance.
     const inside = node.slot !== undefined && inInstance ? false : inInstance || node.type === 'INSTANCE';
-    const children = (node.children ?? []).map((child) => (node.type === 'PAGE' ? keep : view)(child, out as unknown as SceneNode, inside));
+    const children = (node.children ?? []).map((child) =>
+      (node.type === 'PAGE' && viewer.keep ? viewer.keep : view)(child, out as unknown as SceneNode, inside),
+    );
     out.children = children;
     // A member's definitions, Figma's way: read on the set, not on a member of one.
     const definitions = (slots?: Unreported['slots']): ComponentPropertyDefinitions => {

@@ -2,8 +2,8 @@
  * `toghen-figma`: the one command.
  *
  *     toghen-figma variables <entry.json>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]
- *     toghen-figma components <file>… [--resolver <entry.json>] [--name <name>] [--overrides <map.json>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]
- *     toghen-figma sync <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]
+ *     toghen-figma components <file>… [--resolver <entry.json>] [--name <name>] [--overrides <map.json>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--skip-unchanged] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]
+ *     toghen-figma sync <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--skip-unchanged] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]
  *     toghen-figma check <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--input <document>]
  *     toghen-figma members <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--input <document>]
  *     toghen-figma lock <library name>
@@ -30,8 +30,8 @@ import { run, type RunIo } from './run.js';
 export type { RunIo as Io } from './run.js';
 
 const USAGE = `usage: toghen-figma variables <entry.json>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>] [--library <library>]
-       toghen-figma components <file>… [--resolver <entry.json>] [--name <name>] [--overrides <map.json>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>] [--library <library> | --use <library>…]
-       toghen-figma sync <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>] [--library <library> | --use <library>…]
+       toghen-figma components <file>… [--resolver <entry.json>] [--name <name>] [--overrides <map.json>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--skip-unchanged] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>] [--library <library> | --use <library>…]
+       toghen-figma sync <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--input <document>] [--page <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--skip-unchanged] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>] [--library <library> | --use <library>…]
        toghen-figma check <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--input <document>]
        toghen-figma members <entry.json>… <file>… [--name <name>] [--overrides <map.json>] [--input <document>]
        toghen-figma lock <library name>
@@ -57,6 +57,8 @@ more than once. In Figma it is the library's name, as the lock holds it; in FigC
 refreshes first (a dry run neither). Without --use, every name is found in the file, as before.
 a plan prints its skips counted by cause, and lists the rows of every cause but unchanged, ten per cause and then how many more.
 --verbose lists every skip, the unchanged ones too, and every patch of a component set with the fields it writes.
+--skip-unchanged leaves unread each set and artboard whose stamp holds the fingerprint of what this run would write for it, and says it is unchanged.
+it trusts the fingerprint: a change made by hand in such a set or artboard is not looked for. Without it, every one is read and compared, as before.
 `;
 
 /** An artboard file by its name; any other file is a component file. */
@@ -76,11 +78,11 @@ const FLAGS: Record<string, { value: string[]; switches: string[] }> = {
   },
   components: {
     value: ['--page', '--resolver', '--input', '--figcraft', '--figcraft-file', '--library', '--use', ...LOAD],
-    switches: ['--dry-run', '--allow-breaking', '--overwrite-drift', '--verbose'],
+    switches: ['--dry-run', '--allow-breaking', '--overwrite-drift', '--skip-unchanged', '--verbose'],
   },
   sync: {
     value: ['--collection', '--page', '--input', '--figcraft', '--figcraft-file', '--library', '--use', ...LOAD],
-    switches: ['--dry-run', '--allow-breaking', '--overwrite-drift', '--verbose'],
+    switches: ['--dry-run', '--allow-breaking', '--overwrite-drift', '--skip-unchanged', '--verbose'],
   },
   check: { value: ['--input', ...LOAD], switches: [] },
   members: { value: ['--input', ...LOAD], switches: [] },
@@ -202,6 +204,7 @@ export async function main(argv: string[], io: RunIo): Promise<number> {
       dryRun: options['--dry-run'] === true,
       allowBreaking: options['--allow-breaking'] === true,
       ...(options['--overwrite-drift'] === true ? { overwriteDrift: true } : {}),
+      ...(options['--skip-unchanged'] === true ? { skipUnchanged: true } : {}),
       ...(options['--verbose'] === true ? { verbose: true } : {}),
       ...(figcraft !== undefined ? { figcraft } : {}),
       ...(figcraftFile !== undefined ? { figcraftFile } : {}),

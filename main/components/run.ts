@@ -18,9 +18,10 @@ import { ComponentRunError } from './errors.js';
 import { expectedOf, type Wiring } from './receipt.js';
 import { plannedValueLines } from './fieldWriter.js';
 import { preferredOf, resolve, type Resolved } from './resolve.js';
-import { copiesFinder, keepsNoStamp, outermost } from './stamp.js';
+import { copiesFinder, keepsNoStamp, outermost, stampOn, updateStamp } from './stamp.js';
 import { applyArtboardUpdate, applyUpdate, keepsChildren, type Updated, type UpdatedArtboard } from './update.js';
-import { takeArtboardSnapshot, takeSnapshot } from './snapshot.js';
+import { builtNode, takeArtboardSnapshot, takeSnapshot } from './snapshot.js';
+import { fingerprintOf } from './fingerprint.js';
 
 const refusal = (step: Step): step is Extract<Step, { kind: 'REFUSE_FOREIGN' }> => step.kind === 'REFUSE_FOREIGN';
 
@@ -141,7 +142,30 @@ export async function run(desired: Desired, options: RunOptions = {}): Promise<R
   for (const page of figma.root.children) await page.loadAsync();
 
   const resolved = await resolve(desired, options);
-  if (desired.artboard) return runArtboard(desired, resolved, options);
+  // What this run would write, hashed: a set or an artboard whose stamp holds the same is left unread when the run
+  // was told to skip what has not changed, and a real run that finishes one stamps it (`finish`).
+  const fingerprint = await fingerprintOf(desired, resolved, options.page);
+  if (options.skipUnchanged && fingerprint !== undefined) {
+    const built = await builtNode(desired);
+    if (built && stampOn(built)?.fingerprint === fingerprint)
+      return {
+        ...(desired.artboard ? { artboard: true as const } : {}),
+        dryRun: !!options.dryRun,
+        steps: [],
+        setId: built.id,
+        created: [],
+        updated: [],
+        deleted: [],
+        pending: [],
+        ...describe([]),
+        unchanged: true,
+      };
+  }
+  const finish = async (id: string | undefined): Promise<void> => {
+    const node = id === undefined || fingerprint === undefined ? null : await figma.getNodeByIdAsync(id);
+    if (node) updateStamp(node as SceneNode, { fingerprint });
+  };
+  if (desired.artboard) return runArtboard(desired, resolved, options, finish);
   const snapshot = await takeSnapshot(desired.component.name);
   const wiring: Wiring = {
     keys: new Map((snapshot.set?.definitions ?? []).map((definition) => [definition.name, definition.key])),
@@ -210,6 +234,7 @@ export async function run(desired: Desired, options: RunOptions = {}): Promise<R
     report.deleted.push(...applied.deleted);
     report.warnings.push(...applied.warnings);
   }
+  await finish(report.setId);
   return report;
 }
 
@@ -219,7 +244,12 @@ export async function run(desired: Desired, options: RunOptions = {}): Promise<R
  * The gate is the set's: a layer the file stopped producing is removed, which is a breaking step, so a real run
  * that has one stops before its first write unless it was told to take it. A layer without our stamp is never touched.
  */
-async function runArtboard(desired: Desired, resolved: Resolved, options: RunOptions): Promise<Report> {
+async function runArtboard(
+  desired: Desired,
+  resolved: Resolved,
+  options: RunOptions,
+  finish: (id: string | undefined) => Promise<void>,
+): Promise<Report> {
   const [member] = desired.members;
   const snapshot = await takeArtboardSnapshot(member.name);
   const steps = diffArtboard(member, snapshot, receiptsOf(resolved, { keys: new Map(), defaults: new Map() }, options));
@@ -259,7 +289,10 @@ async function runArtboard(desired: Desired, resolved: Resolved, options: RunOpt
   } else if (snapshot.artboard) {
     report.setId = snapshot.artboard.id;
     // A run with nothing to change does not even switch pages.
-    if (!steps.some((step) => step.kind !== 'LEAVE' && step.kind !== 'OVERWRITE')) return report;
+    if (!steps.some((step) => step.kind !== 'LEAVE' && step.kind !== 'OVERWRITE')) {
+      await finish(report.setId);
+      return report;
+    }
     const applied = await (writer
       ? writer.updateArtboard(snapshot.artboard.id, steps, desired, resolved)
       : applyArtboardUpdate(snapshot.artboard.id, steps, desired, resolved));
@@ -269,5 +302,6 @@ async function runArtboard(desired: Desired, resolved: Resolved, options: RunOpt
     report.deleted.push(...applied.deleted);
     report.warnings.push(...applied.warnings);
   }
+  await finish(report.setId);
   return report;
 }

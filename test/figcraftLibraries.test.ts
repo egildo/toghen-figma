@@ -270,7 +270,9 @@ FRAME Gallery layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertica
       const after = await use(fake, ['--dry-run']);
       assert.equal(after.code, 0, after.stdout + after.stderr);
       assert.match(after.stdout, /Gallery \(dry run\): \d+ steps? · 0 would create · 0 would update · 0 would delete/);
-      assert.doesNotMatch(after.stdout, /pending: (token|text style)/);
+      assert.doesNotMatch(after.stdout, /pending: (token|text style|component)/);
+      // The library's component is found as its copy too, so nothing is pending and the fingerprint answers.
+      assert.match((await use(fake, ['--dry-run', '--skip-unchanged'])).stdout, /Gallery \(dry run\): unchanged, its fingerprint the same/);
     } finally {
       await fake.close();
     }

@@ -70,6 +70,11 @@ export interface Stamp {
   receipt: Record<string, string>;
   /** On a set or an artboard's frame: where Toghen last put it. A node whose position still equals it has not been moved by hand. */
   placed?: Position;
+  /**
+   * On a set or an artboard's frame: what the last run that finished it would have written, hashed (`fingerprintOf`).
+   * A run told to skip what has not changed leaves the set or artboard unread while it is the same.
+   */
+  fingerprint?: string;
 }
 
 const IDENTITY_TEXT = ['token', 'modifier', 'component', 'member', 'address', 'artboard'] as const;
@@ -122,7 +127,13 @@ export function getStamp(object: PluginDataMixin): Stamp | undefined {
     if (Object.keys(is).length === 0) return undefined;
     const receipt: Record<string, string> = {};
     for (const [field, hash] of Object.entries(parsed.receipt)) if (typeof hash === 'string') receipt[field] = hash;
-    return { is, ...(typeof parsed.id === 'string' ? { id: parsed.id } : {}), receipt, ...positionOf(parsed.placed) };
+    return {
+      is,
+      ...(typeof parsed.id === 'string' ? { id: parsed.id } : {}),
+      receipt,
+      ...positionOf(parsed.placed),
+      ...(typeof parsed.fingerprint === 'string' ? { fingerprint: parsed.fingerprint } : {}),
+    };
   } catch (_unreadable) {
     // No stamp reads as an empty string, which does not parse; a stamp someone edited by hand is not ours to interpret.
     return undefined;
@@ -174,7 +185,13 @@ export function stampOn(node: PluginDataMixin): Stamp | undefined {
 export function updateStamp(node: Stamped, change: Partial<Stamp>): void {
   const held = stampOn(node);
   const placed = change.placed ?? held?.placed;
-  const next: Stamp = { is: { ...held?.is, ...change.is }, receipt: change.receipt ?? held?.receipt ?? {}, ...(placed ? { placed } : {}) };
+  const fingerprint = change.fingerprint ?? held?.fingerprint;
+  const next: Stamp = {
+    is: { ...held?.is, ...change.is },
+    receipt: change.receipt ?? held?.receipt ?? {},
+    ...(placed ? { placed } : {}),
+    ...(fingerprint ? { fingerprint } : {}),
+  };
   // A stamp that names another id, or none, is written again with the node's.
   if (node.getSharedPluginData(NAMESPACE, STAMP_KEY) !== textOf(node, next)) setStamp(node, next);
   for (const key of OLD_KEYS) if (node.getSharedPluginData(NAMESPACE, key) !== '') node.setSharedPluginData(NAMESPACE, key, '');

@@ -919,6 +919,16 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
     // unmeasured: that a key names either a component or a set, and that the component call is the one that fails for a set
     components.set(componentKey(ref), (await figma.importComponentSetByKeyAsync(key)).defaultVariant);
   };
+  // A library's component an earlier run imported, found without importing where the target can say so: FigCraft keeps
+  // what each copy was imported from; Figma gives no such read, and there a dry run lists it as pending, as before.
+  const imported = (ref: ComponentRef, key: string) => async (): Promise<boolean> => {
+    if (!('importedByKey' in figma)) return false;
+    const node = await (figma as unknown as { importedByKey(key: string): Promise<SceneNode | null> }).importedByKey(key);
+    const component = node?.type === 'COMPONENT_SET' ? node.defaultVariant : node?.type === 'COMPONENT' ? node : undefined;
+    if (!component) return false;
+    components.set(componentKey(ref), component);
+    return true;
+  };
   const local = localComponents();
   const attempted = new Set<string>();
   const lookupComponent = async (ref: ComponentRef, entry: Wanted): Promise<void> => {
@@ -933,7 +943,12 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
       const named = (from: string[]): { library: string }[] => from.map((library) => ({ library }));
       if (located.at === 'key') {
         sources.set(key, { name: located.name, key: located.key });
-        return importing(label, `(key)"${located.key}" from the overrides map`, () => importComponent(ref, located.key));
+        return importing(
+          label,
+          `(key)"${located.key}" from the overrides map`,
+          () => importComponent(ref, located.key),
+          imported(ref, located.key),
+        );
       }
       if (located.at === 'both') problems.push(both(label, ids(located.here), named(located.libraries)));
       else if (located.at === 'several') problems.push(several(label, named(located.libraries)));
@@ -943,6 +958,7 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
           label,
           `${located.set ? 'the component set' : 'the component'} "${located.name}" from library "${located.library}"`,
           () => importComponent(ref, located.key, located.set),
+          imported(ref, located.key),
         );
       } else if (located.at === 'missing' && options.dryRun && options.pending?.components?.includes(located.name)) {
         // A set a file earlier in the same dry run would create (ruling 7a): its name is checked, and what is set on its instances is not yet.

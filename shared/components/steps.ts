@@ -52,6 +52,11 @@ export interface RunOptions {
   pending?: Pending;
   /** The libraries the file declares, whose names resolve through the lock: a blueprint's `library` lines. None for a component or artboard file alone. */
   libraries?: string[];
+  /**
+   * Leave unread a set or an artboard whose stamp holds the fingerprint of what this run would write for it: trusted,
+   * so a change made by hand in it is not looked for. Without it every one is read and compared.
+   */
+  skipUnchanged?: boolean;
 }
 
 /**
@@ -165,6 +170,8 @@ export interface Report {
   warnings: string[];
   /** Names a dry run counted as present because `pending` said an earlier step would create them. Empty for a real run. */
   pending: string[];
+  /** Left unread by `skipUnchanged`: its stamp holds the fingerprint of what the run would write. No step was planned. */
+  unchanged?: true;
 }
 
 /** One step as the plugin reports it: what it did and to what, without the layer it carried. */

@@ -638,12 +638,13 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
       const labels = fake.labels.length;
       read(fake, await run('large'), /Sized: 0 steps/, labels);
 
-      // Only the variant changes: the patch writes the properties, then the sizing again.
+      // Only the variant changes: the patch writes the properties, then the sizing again, and the artboard's stamp takes
+      // the new fingerprint.
       const switched = await run('small');
       assert.equal(switched.code, 0, switched.stderr);
       assert.deepEqual(
         fake.labels.slice(labels).filter((label) => label !== 'Read' && label !== 'Toghen stamps'),
-        ['Update Card'],
+        ['Update Card', 'Toghen: stamps'],
       );
       assert.equal(card.mainComponent, named(fake, 'COMPONENT', 'Size=small').id);
       assert.equal(card.width, 480);
@@ -769,6 +770,64 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
       assert.match((await run(2, 'B')).stdout, /Rows: 2 steps · 0 created · 2 updated · 0 deleted/);
       const labels = fake.labels.length;
       read(fake, await run(2, 'B'), /Rows: 0 steps/, labels);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('skips, with --skip-unchanged, a set or artboard whose fingerprint is the same, unread, and reads and plans one that changed', async () => {
+    const fake = await startFakeFigcraft();
+    const run = (note: string, flags: string[] = []) => sync(fake, flags, boards(note), boardFiles);
+    const readsOf = (name: string): number => fake.gets.filter((id) => id === named(fake, 'FRAME', name).id).length;
+    try {
+      assert.equal((await run('first')).code, 0);
+
+      // Nothing changed: every set and artboard is unchanged, and no artboard's insides are read.
+      fake.gets.length = 0;
+      const same = await run('first', ['--dry-run', '--skip-unchanged']);
+      assert.equal(same.code, 0, same.stderr);
+      for (const name of ['Icon', 'Button', 'Board0', 'Board3'])
+        assert.match(same.stdout, new RegExp(`${name} \\(dry run\\): unchanged, its fingerprint the same; not read`));
+      for (const at of [0, 1, 2, 3]) assert.equal(readsOf(`Row${at}`), 0, `Row${at} is not read`);
+
+      // One artboard changed: it is read and planned, the others are not.
+      fake.gets.length = 0;
+      const changed = await run('second', ['--dry-run', '--skip-unchanged']);
+      assert.match(changed.stdout, /Board0 \(dry run\): 1 step · 0 would create · 1 would update · 0 would delete/);
+      assert.match(changed.stdout, /Board1 \(dry run\): unchanged/);
+      assert.ok(readsOf('Row0') > 0, 'the changed artboard is read');
+      assert.equal(readsOf('Row1'), 0, 'an unchanged one is not');
+
+      // A real run writes it and stamps its new fingerprint; then everything is unchanged again.
+      assert.match((await run('second')).stdout, /Board0: 1 step · 0 created · 1 updated/);
+      assert.equal((await run('second', ['--dry-run', '--skip-unchanged'])).stdout.match(/unchanged, its fingerprint/g)?.length, 7);
+
+      // The fingerprint is trusted: a change made by hand is not looked for with the flag, and is found without it.
+      named(fake, 'TEXT', 'Note2').characters = 'by hand';
+      assert.match((await run('second', ['--dry-run', '--skip-unchanged'])).stdout, /Board2 \(dry run\): unchanged/);
+      assert.match((await run('second', ['--dry-run'])).stdout, /Board2 \(dry run\): 1 step/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it("reads again, with --skip-unchanged, a set whose token's value changed, and stamps its new fingerprint", async () => {
+    const fake = await startFakeFigcraft();
+    const document = (hex: number) => {
+      const read = JSON.parse(readFileSync(SAMPLE, 'utf8'));
+      // `color.brand.danger` is an alias of this one: the fingerprint follows the alias to the value it holds.
+      read.sets.primitives.sources[0].color['red-500'].$value = { colorSpace: 'srgb', components: [hex, 0.2, 0.2] };
+      return JSON.stringify(read);
+    };
+    try {
+      assert.equal((await sync(fake, [], { [SAMPLE]: document(0.8) })).code, 0);
+      assert.match((await sync(fake, ['--skip-unchanged'], { [SAMPLE]: document(0.8) })).stdout, /Icon: unchanged/);
+      // The variable sync writes the new value first; the set that binds it is then read, compared and stamped again.
+      const after = await sync(fake, ['--skip-unchanged'], { [SAMPLE]: document(0.6) });
+      assert.equal(after.code, 0, after.stderr);
+      assert.doesNotMatch(after.stdout, /Icon: unchanged/);
+      assert.match(after.stdout, /Button: unchanged/);
+      assert.match((await sync(fake, ['--skip-unchanged'], { [SAMPLE]: document(0.6) })).stdout, /Icon: unchanged/);
     } finally {
       await fake.close();
     }

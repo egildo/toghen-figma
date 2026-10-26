@@ -4,7 +4,7 @@
 
 **Created**: 26 October 2026
 
-**Status**: Draft
+**Status**: Ready
 
 **Input**: User description: "Plan the fingerprints as well." A sibling consumer asked that a run leave alone, without reading it, a component set or an artboard whose inputs have not changed, so that a check that three large files are in step answers in seconds.
 
@@ -101,5 +101,9 @@ After changing two component files, a real run writes those two sets, the artboa
    - a. What the run would write, after kdlet and resolution, before any reading of the file. *Recommended*: exact, and resolution is cheap next to reading layers (under 0.3 s for 80 artboards in the profile).
    - b. The inputs as written: cheapest, but coarse, and an include or a lock change must be added by hand to the list.
 
-## Answers
+## Answers (26 October 2026)
+
+1. b. Build now: the reporter's measurement (F7) shows the UI library run and the full artboard run are still the long ones.
+2. a. Today's full check stays the default; an opt-in flag trusts the fingerprints and skips the reading.
+3. a. The fingerprint hashes what the run would write, after kdlet and resolution.
 

@@ -22,7 +22,7 @@ import type { Operation, SkipCause } from '../shared/operations.js';
 import { pendingNames } from '../shared/pendingNames.js';
 import type { Command, LockedLibrary, Overrides, PlanPayload, Response } from '../shared/protocol.js';
 import { PORT, newCode, pairing, serve, type Bridge } from './bridge.js';
-import { bridgeOn, closeTab, openFigcraft, pinPath, type FigcraftBridge } from './figcraft.js';
+import { bridgeOn, closeTab, openFigcraft, pinPath, readShallow, type FigcraftBridge } from './figcraft.js';
 import { counted, describeTarget, enable, libraryName, lockedFrom, publish } from './figcraftLibrary.js';
 
 export interface Io {
@@ -65,6 +65,8 @@ export interface RunArguments extends LoadArguments {
   allowBreaking: boolean;
   /** Write the document's value over a mode, or a component's field, edited in Figma. */
   overwriteDrift?: boolean;
+  /** Leave unread each set and artboard whose stamp holds the fingerprint of what the run would write for it. */
+  skipUnchanged?: boolean;
   /** List every skip, the quiet ones too, and every patch of a component set with its fields. */
   verbose?: boolean;
   /** Run into the file FigCraft shows, through its control socket on this port, instead of through the plugin. */
@@ -339,6 +341,8 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
   let figcraft: { target: FigcraftBridge; library?: FigcraftBridge & { made?: true }; path: string } | undefined;
   try {
     if (args.figcraftFile !== undefined || args.figcraft !== undefined) {
+      // A dry run that skips what has not changed reads a top-level frame's insides only where it compares it.
+      readShallow(args.dryRun && args.skipUnchanged === true);
       const opened =
         args.figcraftFile !== undefined
           ? await openFigcraft({ file: resolve(io.cwd, args.figcraftFile) }, io)
@@ -630,6 +634,7 @@ async function runSteps(
       dryRun: args.dryRun,
       ...(args.allowBreaking ? { allowBreaking: true } : {}),
       ...(args.overwriteDrift ? { overwriteDrift: true } : {}),
+      ...(args.skipUnchanged ? { skipUnchanged: true } : {}),
       ...(pending ? { pending } : {}),
     };
     const response = await bridge.request(
@@ -643,6 +648,10 @@ async function runSteps(
       exit = 1;
     } else if (response.type === 'COMPONENT_RUN') {
       const { component: name, report } = response.payload;
+      if (report.unchanged) {
+        io.stdout(`${name}${report.dryRun ? ' (dry run)' : ''}: unchanged, its fingerprint the same; not read\n`);
+        continue;
+      }
       if (report.dryRun && report.steps.some((step) => step.kind === 'CREATE_SET')) created.push(name);
       // A dry run applies nothing, so what it would do is counted from its steps, as the real run would count it: for a set,
       // the members a write step names; for an artboard, the layers it would make, patch or swap, and remove.

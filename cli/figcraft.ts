@@ -257,14 +257,19 @@ export function touchedBy(into: Touched, steps: readonly Step[], results: readon
     if (typeof value === 'number' && named) into.ids.add(value);
     else if (Array.isArray(value)) for (const item of value) collect(item, named);
     else if (value && typeof value === 'object')
-      for (const [key, inner] of Object.entries(value)) collect(inner, NAMES_A_LAYER.has(key) || (named && key === '$step'));
+      // `{ $step: n }` names what step n of this batch makes, by its place in the batch, not an id: its result names it.
+      for (const [key, inner] of Object.entries(value)) if (key !== '$step') collect(inner, NAMES_A_LAYER.has(key));
   };
   for (const step of steps) {
     if (!LAYER_COMMANDS.test(step.command)) into.all = true;
     collect(step.params, false);
   }
-  // What a batch made is named by its result.
-  if (results) collect(results, false);
+  // What a batch made is named by its result's own id; an id nested in a result names something else (an instance's
+  // component), which reading as written would mark every instance of it stale.
+  for (const result of results ?? []) {
+    const id = (result as { id?: unknown } | null)?.id;
+    if (typeof id === 'number') into.ids.add(id);
+  }
 }
 
 const sameFile = (a: Tab, b: Tab | undefined): boolean => b !== undefined && a.name === b.name && a.path === b.path;
@@ -455,12 +460,18 @@ async function writeStamps(control: Control, pin: Pin, page: number | undefined,
   );
 }
 
+/** Whether the layers are read shallow (`readPages`): set for a dry run that skips what has not changed. */
+let shallowReads = false;
+export function readShallow(on: boolean): void {
+  shallowReads = on;
+}
+
 /**
  * Every page of the pinned file with its layers, as `node.get` answers them. `node.get` lists a layer's children one
  * level down, whatever depth it is asked for (measured 23 October 2026), so the layers are read a level at a time, each
  * level in one request.
  */
-async function readPages(control: Control, pin: Pin): Promise<{ pages: FcNode[]; current?: number }> {
+async function readPages(control: Control, pin: Pin, shallow = false): Promise<{ pages: FcNode[]; current?: number }> {
   const [list] = (await inFile(control, pin, 'Read', [{ command: 'page.list', params: {} }])) as [Page[]];
   const pages = (await inFile(
     control,
@@ -468,7 +479,10 @@ async function readPages(control: Control, pin: Pin): Promise<{ pages: FcNode[];
     'Read',
     list.map((page) => ({ command: 'node.get', params: { id: page.id } })),
   )) as FcNode[];
-  await readDown(control, pin, pages);
+  // Shallow, a top-level frame is read without what is inside it, which `loadAsync` reads when a run compares it: an
+  // artboard a dry run skips by its fingerprint is never read. Sets are read whole, as instances are resolved in them.
+  const tops = pages.flatMap((page) => page.children ?? []).filter((top) => !shallow || top.type !== 'FRAME');
+  await readDown(control, pin, [{ children: tops } as FcNode]);
   return { pages, current: list.find((page) => page.current)?.id };
 }
 
@@ -629,7 +643,7 @@ async function figmaFor(control: Control, pin: Pin, say: Say, posted: Response[]
     pin.touched = undefined;
     const whole = !last || touched?.all === true;
     if (whole) copyNodes.clear();
-    if (whole) last = await readPages(control, pin);
+    if (whole) last = await readPages(control, pin, shallowReads);
     else if (touched) last = await refreshPages(control, pin, last!, touched);
     const ids = [...copies.keys()];
     for (const node of await readCopies(
@@ -643,6 +657,7 @@ async function figmaFor(control: Control, pin: Pin, say: Say, posted: Response[]
       writes,
       { nodes: ids.flatMap((id) => copyNodes.get(id) ?? []), keyOf: (id) => copies.get(id) },
       whole ? undefined : scene,
+      (node) => readDown(control, pin, [{ children: [node] } as FcNode]),
     );
     current = last!.current === undefined ? undefined : String(last!.current);
     return scene;
@@ -739,6 +754,11 @@ async function figmaFor(control: Control, pin: Pin, say: Say, posted: Response[]
       return node;
     },
     getNodeByIdAsync: async (id: string) => scene.byId(id) ?? null,
+    // A library's copy already in the file, by the key it was imported by: a read, which a dry run takes (resolve.ts).
+    importedByKey: async (key: string) => {
+      for (const [id, from] of copies) if (from === key) return scene.byId(id) ?? null;
+      return null;
+    },
     setCurrentPageAsync: async () => {},
     loadAllPagesAsync: async () => {},
     get currentPage() {

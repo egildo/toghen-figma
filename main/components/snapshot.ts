@@ -286,6 +286,34 @@ const stampedSets = (componentName: string): Promise<Sorted<ComponentSetNode>> =
     ),
   );
 
+/**
+ * A set or an artboard's frame with what is inside it, read: FigCraft may hold a top-level layer read without it (a dry
+ * run that skips what has not changed reads only what it compares), and reads it when asked. In Figma nothing is left.
+ */
+async function loaded<T extends SceneNode>(node: T): Promise<T> {
+  if ('loadAsync' in node) await (node as { loadAsync(): Promise<void> }).loadAsync();
+  return node;
+}
+
+/**
+ * The set or the artboard's frame Toghen built for `desired`, found by its stamp alone, and nothing in it read: what a
+ * run that skips what has not changed compares its fingerprint with. Undefined where there is none, or more than one.
+ */
+export async function builtNode(desired: {
+  component: { name: string };
+  members: { name: string }[];
+  artboard?: true;
+}): Promise<SceneNode | undefined> {
+  const { ours } = desired.artboard
+    ? await sortNodes(
+        findInEveryPage({ types: ['FRAME'], sharedPluginData: stampedAs('artboard') }).filter(
+          (frame) => stampOn(frame)?.is.artboard === desired.members[0]?.name,
+        ),
+      )
+    : await stampedSets(desired.component.name);
+  return ours.length === 1 ? ours[0] : undefined;
+}
+
 /** The lines naming what is wrong with each of these components' stamped sets that Figma reports as broken, for the check that runs before a sync writes anything. A copy is not Toghen's to check. */
 export async function brokenSetProblems(componentNames: string[]): Promise<string[]> {
   // The same page-by-page loading a run does before it reads the file.
@@ -316,7 +344,7 @@ export async function takeSnapshot(componentName: string): Promise<Snapshot> {
     .map((set) => ({ id: set.id, name: set.name }));
 
   return {
-    ...(ours.length === 1 ? { set: await snapshotSet(ours[0], componentName) } : {}),
+    ...(ours.length === 1 ? { set: await snapshotSet(await loaded(ours[0]), componentName) } : {}),
     foreign,
     ...(copies.length > 0 ? { copies: copies.map(({ copy }) => ({ id: copy.id, name: copy.name })) } : {}),
   };
@@ -340,7 +368,7 @@ export async function takeArtboardSnapshot(name: string): Promise<ArtboardSnapsh
     ]);
   }
   return {
-    ...(ours.length === 1 ? { artboard: await snapshotTree(ours[0], name, true) } : {}),
+    ...(ours.length === 1 ? { artboard: await snapshotTree(await loaded(ours[0]), name, true) } : {}),
     ...(copies.length > 0 ? { copies: copies.map(({ copy }) => ({ id: copy.id, name: copy.name })) } : {}),
   };
 }
