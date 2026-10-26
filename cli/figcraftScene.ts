@@ -447,9 +447,17 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
         return true;
       }
     };
+    // What a search under a top-level layer found, by its criteria: a run searches every page for each set and each
+    // artboard, and a layer no write touched answers as it did. A write in it, or a removal, forgets its answers.
+    const searched = new Map<string, SceneNode[]>();
+    const forget = (): void => {
+      for (let at = out as { parent?: unknown; searched?: Map<string, SceneNode[]> } | undefined; at; at = at.parent as typeof at)
+        at.searched?.clear();
+    };
     const written = (key: string, value: string): void => {
       data[key] = value;
       writes.data.set(node.id, { ...writes.data.get(node.id), [key]: value });
+      forget();
     };
     const layout = node.layout ?? {};
     const recorded = (field: string): any => unreported().fields?.[field];
@@ -560,27 +568,40 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
       remove: (): void => {
         out.removed = true;
         writes.removed.push(node.id);
+        forget();
       },
       loadAsync: async (): Promise<void> => {},
       findAllWithCriteria: (criteria: { types?: string[]; sharedPluginData?: { namespace: string; keys?: string[] } }): SceneNode[] => {
+        const key = JSON.stringify(criteria);
+        const kept = searched.get(key);
+        if (kept) return [...kept];
         const found: SceneNode[] = [];
+        const matches = (child: SceneNode): boolean => {
+          const shared = criteria.sharedPluginData;
+          const typed = !criteria.types || criteria.types.includes(child.type);
+          return (
+            typed &&
+            (!shared ||
+              (shared.keys ?? child.getSharedPluginDataKeys(shared.namespace)).some(
+                (name) => child.getSharedPluginData(shared.namespace, name) !== '',
+              ))
+          );
+        };
         const visit = (at: SceneNode): void => {
           for (const child of (at as unknown as { children?: SceneNode[] }).children ?? []) {
-            const shared = criteria.sharedPluginData;
-            const typed = !criteria.types || criteria.types.includes(child.type);
-            const held =
-              !shared ||
-              (shared.keys ?? child.getSharedPluginDataKeys(shared.namespace)).some(
-                (key) => child.getSharedPluginData(shared.namespace, key) !== '',
-              );
-            if (typed && held) found.push(child);
-            visit(child);
+            if (matches(child)) found.push(child);
+            // A page asks each top-level layer, which keeps its answer.
+            if (node.type === 'PAGE')
+              found.push(...(child as unknown as ChildrenMixin).findAllWithCriteria(criteria as FindAllCriteria<NodeType[]>));
+            else visit(child);
           }
         };
         visit(out as unknown as SceneNode);
-        return found;
+        if ((out.parent as BaseNode | null)?.type === 'PAGE') searched.set(key, found);
+        return [...found];
       },
     };
+    Object.defineProperty(out, 'searched', { value: searched });
     if (node.type === 'TEXT') {
       Object.assign(out, {
         characters: node.characters ?? '',

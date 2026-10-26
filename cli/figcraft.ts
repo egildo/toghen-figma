@@ -325,7 +325,8 @@ export async function pinPath(control: Control, path: string): Promise<Pin & { m
  */
 export async function inFile(control: Control, pin: Pin, label: string, steps: Step[]): Promise<unknown[]> {
   if (pin.lost) throw new Error(pin.lost);
-  const touched = label === 'Read' ? undefined : (pin.touched ??= { all: false, ids: new Set() });
+  if (label !== 'Read') pin.touched ??= { all: false, ids: new Set() };
+  const touched = label === 'Read' ? undefined : pin.touched;
   if (touched) touchedBy(touched, steps, undefined);
   const answer = control.call('engine.execute', {
     command: 'command.batch',
