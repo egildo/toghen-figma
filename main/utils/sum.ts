@@ -202,8 +202,25 @@ interface Named {
  * `resolveSumModes`). The engines turn that into a plan that says so.
  *
  * @param baseName - The Figma name of the base collection, not the lookup prefix
+ *
+ * Built once for each document, base name, map and set of unfolded groups, and shared: a run asks for it in each
+ * plan and each component file, and on a large document each build is most of a second. No caller changes it.
  */
 export function buildSum(resolver: Resolver, baseName: string, conversionMap: TokenTypeConversionMap): Sum {
+  const unfolded = unfoldedFor(resolver).join('\n');
+  const built = sumsBuilt.get(resolver) ?? [];
+  sumsBuilt.set(resolver, built);
+  const found = built.find((entry) => entry.baseName === baseName && entry.conversionMap === conversionMap && entry.unfolded === unfolded);
+  if (found) return found.sum;
+  const sum = sumOf(resolver, baseName, conversionMap);
+  built.push({ baseName, conversionMap, unfolded, sum });
+  return sum;
+}
+
+/** The sums already built, by document: a loaded document does not change. */
+const sumsBuilt = new WeakMap<Resolver, { baseName: string; conversionMap: TokenTypeConversionMap; unfolded: string; sum: Sum }[]>();
+
+function sumOf(resolver: Resolver, baseName: string, conversionMap: TokenTypeConversionMap): Sum {
   const resolution = resolveSumModes(resolver);
   const { ds, dsCollectionName: dsName, modeNames } = resolution;
   const collection = ds.getCollection(dsName);

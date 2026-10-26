@@ -1652,3 +1652,13 @@ Released in 0.1.6. Asked by a consumer whose checks of three FigCraft files stil
 - **A step's place in a batch was read as a layer's id.** `{ $step: 6 }` names what step 6 of the batch makes; the record of what a write touched took the 6 for an id. And an instance's creation answers with its component's id nested in the result, which was taken for a layer written. Either made the component look written, so every artboard holding an instance of it was read again after each artboard built, as before 0.1.3. A build of 80 artboards: 12 s on 0.1.5, 10.4 s now.
 
 *Known ceiling, recorded:* a run that stops partway after writing keeps the old fingerprint; if the inputs are then changed back to it, a skipping run takes the set or artboard as unchanged. A run without the flag sets it right.
+
+## Fixed: a skipped set still cost most of a second (26 October 2026)
+
+Released in 0.1.7. Reported against 0.1.6: a `sync` dry run with `--skip-unchanged` spent about 0.8 s on each set it skipped, 103 s for 129 sets, where a `components` run skipped 129 artboards in 18 s.
+
+**Found.** Before comparing fingerprints, each component file is resolved, and resolving builds the sum of the loaded design system: every token in every mode, read and routed to its variable. The sum was cached nowhere; it was built again for each component file, and once more in each plan and in the check before them. An artboard run in `components` has no design system loaded, so it never paid. The cost grows with the tokens and the modes: on a synthetic document of 1,745 tokens in two modes a build takes 50 ms, in ten modes 155 ms, and in twenty-one 1.2 s. Profiled, it was 7 of a dry run's 9 s.
+
+*Chosen:* the sum is built once for each document, base name, type map and set of unfolded groups, and shared (`buildSum`, `main/utils/sum.ts`). A loaded document does not change, and no caller changes the sum. Measured against `figcraft-cli` 0.10.0 on 40 sets, each on its own page, ten modes: each skipped set from 0.155 s to 2 ms, the whole dry run from 8.3 s to 1.5 s.
+
+*Not reproduced:* the 39 s the reporter's run took before its variable plan was printed. On the synthetic documents everything before that line took 0.9 to 2.3 s, before the fix and after; FigCraft's reads in it were seven requests. Asked of the reporter: a measurement on 0.1.7, and a CPU profile if it is still long. A fingerprint of the variable plan, as the reporter proposed, is not built: it waits for the measurement.
