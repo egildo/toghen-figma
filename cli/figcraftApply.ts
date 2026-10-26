@@ -238,6 +238,8 @@ interface Build {
   /** Frames to make slots, and instances to expose, once they are inside a main component, which FigCraft requires. */
   slots: Array<{ ref: Ref; name: string }>;
   exposes: Array<{ ref: Ref; exposed: boolean }>;
+  /** An artboard's: no layer of it is in a component, so none is wired to a property, nor taken off one. */
+  artboard?: true;
 }
 
 /** A length as FigCraft takes one: pixels as a number, a percentage as `"150%"`, auto as `"auto"`. */
@@ -314,7 +316,8 @@ function fieldCommands(batch: Batch, build: Build, ref: Ref, layer: Layer, root:
     const v = f[name] as Value | undefined;
     if (v?.kind === 'property') {
       build.wires.push({ ref, field, property: v.name });
-    } else if (v?.kind === 'literal' || (v?.kind === 'token' && only && !root)) build.wires.push({ ref, field, property: null });
+    } else if (!build.artboard && (v?.kind === 'literal' || (v?.kind === 'token' && only && !root)))
+      build.wires.push({ ref, field, property: null });
   };
 
   if (has('layoutMode')) writePlain('layoutMode');
@@ -707,11 +710,11 @@ function slotRecord(batch: Batch, set: Ref, spec: SetSpec): void {
     batch.add('node.set', { ids: [set], props: { pluginData: { [UNREPORTED_KEY]: JSON.stringify({ slots }) } } });
 }
 
-function buildOf(resolved: Resolved, spec: SetSpec): Build {
+function buildOf(resolved: Resolved, spec: SetSpec, artboard = false): Build {
   const defaults = new Map<string, string | boolean>();
   for (const property of spec.properties)
     if (property.type === 'BOOLEAN' || property.type === 'TEXT') defaults.set(property.name, property.default as string | boolean);
-  return { resolved, spec, defaults, wires: [], slots: [], exposes: [], later: [] };
+  return { resolved, spec, defaults, wires: [], slots: [], exposes: [], later: [], ...(artboard ? { artboard: true as const } : {}) };
 }
 
 // ---------------------------------------------------------------------------
@@ -809,7 +812,7 @@ export function figcraftWriter(to: Target) {
 
   /** An artboard that does not exist yet: its frame and its layers, in one batch. */
   async function createArtboard(step: Extract<Step, { kind: 'CREATE_ARTBOARD' }>, resolved: Resolved): Promise<AppliedArtboard> {
-    const build = buildOf(resolved, { name: step.member.name, properties: [] });
+    const build = buildOf(resolved, { name: step.member.name, properties: [] }, true);
     const batch = new Batch();
     pageSelect(batch, resolved.page);
     const made: Array<{ ref: Ref; layer: Layer; is?: Identity }> = [];
@@ -844,7 +847,7 @@ export function figcraftWriter(to: Target) {
   async function updateSteps(rootId: string, steps: Step[], desired: Desired, resolved: Resolved, artboard: boolean): Promise<Updated> {
     const result: Updated = { created: [], updated: [], deleted: [], warnings: [] };
     const spec = desired.component;
-    const build = buildOf(resolved, spec);
+    const build = buildOf(resolved, spec, artboard);
     const wrote: Wrote[] = [];
     let scene = await target.scene();
     const root = scene.byId(rootId);

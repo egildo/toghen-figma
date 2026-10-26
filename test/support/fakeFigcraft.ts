@@ -54,6 +54,8 @@ export interface FakeFigcraft {
   active: number;
   /** Each batch's label, in order: one undo step each. */
   labels: string[];
+  /** The ids each `node.get` asked for, in order: what the run read. */
+  gets: number[];
   /** A command the fake refuses, for a test of a run that fails partway. */
   refuse?: string;
   /** Called after every request, for a test that moves tabs between them. */
@@ -393,6 +395,7 @@ export async function startFakeFigcraft(
     tabs: names.map((name) => file(name)),
     active: 0,
     labels: [],
+    gets: [],
     disk: new Map(),
     close: async () => {},
   };
@@ -764,7 +767,9 @@ export async function startFakeFigcraft(
             (candidate) =>
               candidate.type === 'COMPONENT' && [...walk(candidate.children ?? [])].some(({ node: inside }) => inside.id === node.id),
           );
-        if (params.property && holder && !holder.componentPropertyDefinitions?.[params.property])
+        // A layer in no component is refused, with or without a property (measured 26 October 2026, 0.10.0).
+        if (!holder) throw new Error("invalid parameters for `component.bindProperty`: the layer isn't inside a component");
+        if (params.property && !holder.componentPropertyDefinitions?.[params.property])
           throw new Error(`invalid parameters for \`component.bindProperty\`: the component has no property \`${params.property}\``);
         node.hidden = { ...node.hidden, refs: { ...node.hidden?.refs, [params.field]: params.property } };
         return { ok: true };
@@ -908,6 +913,12 @@ export async function startFakeFigcraft(
             };
           else if (request.method === 'engine.execute') {
             if (request.params.command === 'command.batch' && request.params.params.label) fake.labels.push(request.params.params.label);
+            const gets = (commands: any[] = []): void => {
+              for (const { command, params } of commands)
+                if (command === 'node.get') fake.gets.push(params.id);
+                else if (command === 'command.batch') gets(params.commands);
+            };
+            gets([request.params]);
             reply = { id: request.id, ok: true, result: run(request.params.command, request.params.params ?? {}) };
           } else throw new Error(`unknown method ${request.method}`);
         } catch (error) {

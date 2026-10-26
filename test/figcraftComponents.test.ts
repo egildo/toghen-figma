@@ -697,6 +697,41 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     }
   });
 
+  const boards = (note: string): Record<string, string> =>
+    Object.fromEntries(
+      [0, 1, 2, 3].map((at) => [
+        join(here, `fixtures/figcraft/board${at}.artboard.kdl`),
+        `artboard Board${at}\nFRAME Board${at} layoutMode=VERTICAL {\n    FRAME Row${at} layoutMode=HORIZONTAL {\n        TEXT Note${at} characters=(literal)"${at === 0 ? note : 'kept'}"\n    }\n    INSTANCE Mark${at} component=Icon\n}\n`,
+      ]),
+    );
+  const boardFiles = [0, 1, 2, 3].map((at) => `fixtures/figcraft/board${at}.artboard.kdl`);
+
+  it('reads each layer once in a run, however many sets and artboards it runs, and again only what a write touched', async () => {
+    const fake = await startFakeFigcraft();
+    const run = (note: string, flags: string[] = []) => sync(fake, flags, boards(note), boardFiles);
+    const readsOf = (name: string): number => fake.gets.filter((id) => id === named(fake, 'FRAME', name).id).length;
+    try {
+      assert.equal((await run('first')).code, 0);
+      fake.gets.length = 0;
+      const unchanged = await run('first', ['--dry-run']);
+      assert.equal(unchanged.code, 0, unchanged.stderr);
+      for (const at of [0, 1, 2, 3]) assert.equal(readsOf(`Row${at}`), 1, `Row${at} is read once`);
+
+      // A literal text patched on one artboard (its text unwired from no property: an artboard has none): that artboard
+      // is read again after the write, and the others are not.
+      fake.gets.length = 0;
+      const changed = await run('second');
+      assert.equal(changed.code, 0, changed.stderr);
+      assert.match(changed.stdout, /Board0: 1 step · 0 created · 1 updated/);
+      assert.ok(readsOf('Row0') > 1, 'the artboard written is read again');
+      for (const at of [1, 2, 3]) assert.equal(readsOf(`Row${at}`), 1, `Row${at}, not written, is read once`);
+      const labels = fake.labels.length;
+      read(fake, await run('second'), /Board3: 0 steps/, labels);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('refuses by name what is not built for FigCraft yet, before it writes anything, a dry run included', async () => {
     const fake = await startFakeFigcraft();
     const path = join(here, 'fixtures/figcraft/button.component.kdl');

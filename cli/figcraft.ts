@@ -55,26 +55,42 @@ export interface Control {
   close(): void;
 }
 
+/**
+ * A data handler that calls `line` with each whole line. Each chunk is searched once: a reply of many megabytes, which
+ * a read of a large file is, arrives in many chunks, and searching all that had arrived on each one cost its length
+ * times its chunks.
+ */
+export function byLine(line: (text: string) => void): (chunk: string) => void {
+  let parts: string[] = [];
+  return (chunk) => {
+    for (let at = chunk.indexOf('\n'); at >= 0; at = chunk.indexOf('\n')) {
+      parts.push(chunk.slice(0, at));
+      line(parts.join(''));
+      parts = [];
+      chunk = chunk.slice(at + 1);
+    }
+    if (chunk) parts.push(chunk);
+  };
+}
+
 export function connect(port: number): Promise<Control> {
   return new Promise((resolve, reject) => {
     const socket: Socket = connectSocket(port, '127.0.0.1');
     const waiting: Array<{ resolve(value: unknown): void; reject(error: Error): void }> = [];
-    let buffer = '';
     let next = 1;
     socket.setEncoding('utf8');
     socket.once('error', (error) =>
       reject(new Error(`Nothing answered on 127.0.0.1:${port}: ${error.message}. Start FigCraft with --control ${port}.`)),
     );
-    socket.on('data', (chunk: string) => {
-      buffer += chunk;
-      for (let end = buffer.indexOf('\n'); end >= 0; end = buffer.indexOf('\n')) {
-        const reply = JSON.parse(buffer.slice(0, end)) as { ok: boolean; result?: unknown; error?: string };
-        buffer = buffer.slice(end + 1);
+    socket.on(
+      'data',
+      byLine((line) => {
+        const reply = JSON.parse(line) as { ok: boolean; result?: unknown; error?: string };
         const pending = waiting.shift();
         if (reply.ok) pending?.resolve(reply.result);
         else pending?.reject(new Error(reply.error ?? 'FigCraft refused the request'));
-      }
-    });
+      }),
+    );
     socket.on('close', () => {
       for (const pending of waiting.splice(0)) pending.reject(new Error('FigCraft closed the connection'));
     });
@@ -114,7 +130,6 @@ const before = (a: string, b: string): boolean => {
 export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcraft-cli'): Promise<Control> {
   const child = spawn(cli, ['mcp'], { stdio: ['pipe', 'pipe', 'pipe'] });
   const waiting = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
-  let buffer = '';
   let said = '';
   let next = 1;
   let ended: Error | undefined;
@@ -126,18 +141,17 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk: string) => (said = (said + chunk).slice(-2000)));
-  child.stdout.on('data', (chunk: string) => {
-    buffer += chunk;
-    for (let at = buffer.indexOf('\n'); at >= 0; at = buffer.indexOf('\n')) {
-      const reply = JSON.parse(buffer.slice(0, at)) as { id?: number; result?: unknown; error?: { message: string } };
-      buffer = buffer.slice(at + 1);
+  child.stdout.on(
+    'data',
+    byLine((line) => {
+      const reply = JSON.parse(line) as { id?: number; result?: unknown; error?: { message: string } };
       const pending = reply.id === undefined ? undefined : waiting.get(reply.id);
-      if (!pending) continue;
+      if (!pending) return;
       waiting.delete(reply.id!);
       if (reply.error) pending.reject(new Error(reply.error.message));
       else pending.resolve(reply.result);
-    }
-  });
+    }),
+  );
   child.on('error', (error: NodeJS.ErrnoException) =>
     end(
       new Error(
@@ -218,6 +232,39 @@ export interface Pin {
   tab: Tab;
   /** Set once the file left its tab: every later request is refused before it is sent. */
   lost?: string;
+  /** What the writes since the layers were last read touched (`touchedBy`), for the next read to read again. */
+  touched?: Touched;
+}
+
+/** The layers a write touched, by id; `all` when it may have changed what no id names (a variable, a style, a library). */
+export interface Touched {
+  all: boolean;
+  ids: Set<number>;
+}
+
+/** The parameters, and the result fields, that name a layer a command writes. A layer only referred to (an instance's `component`) is not one. */
+const NAMES_A_LAYER = new Set(['id', 'ids', 'parent', 'layer']);
+/**
+ * Commands that write the layers they name and nothing else: binding a variable or applying a style to a layer
+ * included. Any other write may change what a layer shows (a variable's value, a style, a library's update).
+ */
+const LAYER_COMMANDS =
+  /^(node|frame|text|instance|component|edit)\.|^(page\.select|variable\.bind|variable\.setMode|style\.apply|style\.bind|library\.applyStyle)$/;
+
+/** Adds to `into` what a batch's steps and results touched. */
+export function touchedBy(into: Touched, steps: readonly Step[], results: readonly unknown[] | undefined): void {
+  const collect = (value: unknown, named: boolean): void => {
+    if (typeof value === 'number' && named) into.ids.add(value);
+    else if (Array.isArray(value)) for (const item of value) collect(item, named);
+    else if (value && typeof value === 'object')
+      for (const [key, inner] of Object.entries(value)) collect(inner, NAMES_A_LAYER.has(key) || (named && key === '$step'));
+  };
+  for (const step of steps) {
+    if (!LAYER_COMMANDS.test(step.command)) into.all = true;
+    collect(step.params, false);
+  }
+  // What a batch made is named by its result.
+  if (results) collect(results, false);
 }
 
 const sameFile = (a: Tab, b: Tab | undefined): boolean => b !== undefined && a.name === b.name && a.path === b.path;
@@ -278,7 +325,9 @@ export async function pinPath(control: Control, path: string): Promise<Pin & { m
  */
 export async function inFile(control: Control, pin: Pin, label: string, steps: Step[]): Promise<unknown[]> {
   if (pin.lost) throw new Error(pin.lost);
-  const [, results, tabs] = (await control.call('engine.execute', {
+  const touched = label === 'Read' ? undefined : (pin.touched ??= { all: false, ids: new Set() });
+  if (touched) touchedBy(touched, steps, undefined);
+  const answer = control.call('engine.execute', {
     command: 'command.batch',
     params: {
       label,
@@ -289,7 +338,13 @@ export async function inFile(control: Control, pin: Pin, label: string, steps: S
       ],
     },
     ...(pin.window !== undefined ? { window: pin.window } : {}),
+  });
+  // A batch that fails is rolled back, but nothing says how far it got: the next read reads everything.
+  const [, results, tabs] = (await answer.catch((error: Error) => {
+    if (touched) touched.all = true;
+    throw error;
   })) as [unknown, unknown[], Tab[]];
+  if (touched) touchedBy(touched, [], results);
   if (!sameFile(pin.tab, tabs[pin.tab.index])) {
     pin.lost = `FigCraft no longer has "${pin.tab.name}" at the tab it was in (a tab before it closed?): nothing more is written, and the step before this may have gone to "${tabs[pin.tab.index]?.name ?? 'no file'}".`;
     throw new Error(pin.lost);
@@ -439,15 +494,81 @@ async function readDown(control: Control, pin: Pin, roots: FcNode[]): Promise<vo
  * its id; one that is gone (FigCraft drops a copy nothing uses) is left out.
  */
 async function readCopies(control: Control, pin: Pin, ids: readonly string[]): Promise<FcNode[]> {
-  const copies: FcNode[] = [];
-  for (const id of ids) {
-    const [node] = (await inFile(control, pin, 'Read', [{ command: 'node.get', params: { id: Number(id) } }]).catch(() => [undefined])) as [
-      FcNode | undefined,
-    ];
-    if (node) copies.push(node);
-  }
+  const get = (some: readonly string[]) =>
+    inFile(
+      control,
+      pin,
+      'Read',
+      some.map((id) => ({ command: 'node.get', params: { id: Number(id) } })),
+    ) as Promise<FcNode[]>;
+  // All in one request; one that is gone fails it, and then each is asked for alone.
+  const copies =
+    ids.length === 0
+      ? []
+      : (await get(ids).catch(async () => (await Promise.all(ids.map((id) => get([id]).catch(() => [])))).flat())).filter(Boolean);
   await readDown(control, pin, copies);
   return copies;
+}
+
+/**
+ * The pages as `readPages` reads them, reading again only what may have changed since `before`: each page with its
+ * list of top-level layers, then each top-level layer a write touched, and each that holds an instance of a component
+ * in one of those; the others are kept as `before` holds them. Read whole for each set and each artboard, a file of
+ * many made a run's time grow with the square of the file's size.
+ */
+async function refreshPages(
+  control: Control,
+  pin: Pin,
+  before: { pages: FcNode[] },
+  touched: Touched,
+): Promise<{ pages: FcNode[]; current?: number }> {
+  // Each layer's top-level layer; what components each top-level layer holds, and what mains its instances show.
+  const topOf = new Map<number, FcNode>();
+  const holds = new Map<FcNode, number[]>();
+  const shows = new Map<FcNode, Set<number>>();
+  for (const page of before.pages)
+    for (const top of page.children ?? []) {
+      const held: number[] = [];
+      const shown = new Set<number>();
+      const visit = (node: FcNode): void => {
+        topOf.set(node.id, top);
+        if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') held.push(node.id);
+        if (node.type === 'INSTANCE' && node.mainComponent !== undefined) shown.add(Number(node.mainComponent));
+        for (const child of node.children ?? []) visit(child);
+      };
+      visit(top);
+      holds.set(top, held);
+      shows.set(top, shown);
+    }
+  const stale = new Set([...touched.ids].flatMap((id) => topOf.get(id) ?? []));
+  // A component that changed shows changed in each instance of it, and so in what holds that instance.
+  for (let grew = true; grew; ) {
+    grew = false;
+    const changed = new Set([...stale].flatMap((top) => holds.get(top) ?? []));
+    for (const [top, mains] of shows)
+      if (!stale.has(top) && [...mains].some((id) => changed.has(id))) {
+        stale.add(top);
+        grew = true;
+      }
+  }
+
+  const [list] = (await inFile(control, pin, 'Read', [{ command: 'page.list', params: {} }])) as [Page[]];
+  const pages = (await inFile(
+    control,
+    pin,
+    'Read',
+    list.map((page) => ({ command: 'node.get', params: { id: page.id } })),
+  )) as FcNode[];
+  const read: FcNode[] = [];
+  for (const page of pages)
+    page.children = (page.children ?? []).map((top) => {
+      const kept = topOf.get(top.id);
+      if (kept?.id === top.id && !stale.has(kept)) return kept;
+      read.push(top);
+      return top;
+    });
+  await readDown(control, pin, [{ children: read } as FcNode]);
+  return { pages, current: list.find((page) => page.current)?.id };
 }
 
 /**
@@ -499,10 +620,30 @@ async function figmaFor(control: Control, pin: Pin, say: Say, posted: Response[]
   let current: string | undefined;
   // What each library copy was imported from (`<library id>:<asset id>`), kept in the record: FigCraft gives no read for it.
   const copies = stamps.extras.copies;
+  // The layers as last read, and the library copies by id: a read takes again only what a write touched since (`pin.touched`).
+  let last: { pages: FcNode[]; current?: number } | undefined;
+  const copyNodes = new Map<string, FcNode>();
   const loadScene = async (): Promise<Scene> => {
-    const read = await readPages(control, pin);
-    scene = sceneOf(read.pages, writes, { nodes: await readCopies(control, pin, [...copies.keys()]), keyOf: (id) => copies.get(id) });
-    current = read.current === undefined ? undefined : String(read.current);
+    const touched = pin.touched;
+    pin.touched = undefined;
+    const whole = !last || touched?.all === true;
+    if (whole) copyNodes.clear();
+    if (whole) last = await readPages(control, pin);
+    else if (touched) last = await refreshPages(control, pin, last!, touched);
+    const ids = [...copies.keys()];
+    for (const node of await readCopies(
+      control,
+      pin,
+      ids.filter((id) => !copyNodes.has(id)),
+    ))
+      copyNodes.set(String(node.id), node);
+    scene = sceneOf(
+      last!.pages,
+      writes,
+      { nodes: ids.flatMap((id) => copyNodes.get(id) ?? []), keyOf: (id) => copies.get(id) },
+      whole ? undefined : scene,
+    );
+    current = last!.current === undefined ? undefined : String(last!.current);
     return scene;
   };
   /** A library's component or set copied into the file (once: FigCraft's import is idempotent), and noted in the record. */

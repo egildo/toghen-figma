@@ -385,16 +385,40 @@ export interface Copies {
   keyOf(id: string): string | undefined;
 }
 
+/** Each scene's index and its views of top-level layers and copies, for the next scene to keep (`sceneOf`'s `before`). */
+const kept = new WeakMap<Scene, { index: Map<string, SceneNode>; tops: Map<FcNode, SceneNode> }>();
+
 /**
  * The pages of a FigCraft file, each with its layers, as Figma nodes. `pages` are `node.get` of each page, children
  * to the depth the layers have. What the nodes write back goes into `writes`.
  */
-export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { nodes: [], keyOf: () => undefined }): Scene {
-  const index = new Map<string, SceneNode>();
+export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { nodes: [], keyOf: () => undefined }, before?: Scene): Scene {
+  // With `before`, a top-level layer or a copy read as the same object is the same view: viewing every layer for each
+  // set and each artboard was half a large run's time. The index is shared, so a kept view finds what is new by id.
+  const prior = before && kept.get(before);
+  const index = prior?.index ?? new Map<string, SceneNode>();
+  index.clear();
+  const tops = new Map<FcNode, SceneNode>();
+  const keep = (node: FcNode, parent: SceneNode | null, inInstance: boolean, copyOf?: string): SceneNode => {
+    const old = prior?.tops.get(node);
+    const made = old ?? view(node, parent, inInstance, copyOf);
+    if (old) {
+      (old as { parent: SceneNode | null }).parent = parent;
+      const enter = (at: SceneNode): void => {
+        index.set(at.id, at);
+        for (const child of (at as unknown as { children?: SceneNode[] }).children ?? []) enter(child);
+      };
+      enter(old);
+    }
+    tops.set(node, made);
+    return made;
+  };
   const views = pages.map((page) => view(page, null, false));
   // A copy's own data is the library's, as an instance's is its main's.
-  for (const copy of copies.nodes) view(copy, null, true, copies.keyOf(String(copy.id)));
-  return { pages: views, byId: (id) => index.get(id), adopt: (node, key) => view(node, null, true, key) };
+  for (const copy of copies.nodes) keep(copy, null, true, copies.keyOf(String(copy.id)));
+  const scene: Scene = { pages: views, byId: (id) => index.get(id), adopt: (node, key) => view(node, null, true, key) };
+  kept.set(scene, { index, tops });
+  return scene;
 
   function offered(id: unknown): InstanceSwapPreferredValue {
     const node = index.get(String(id)) as (SceneNode & { key?: string }) | undefined;
@@ -614,7 +638,7 @@ export function sceneOf(pages: FcNode[], writes: Writes, copies: Copies = { node
     // What fills an instance's slot is the instance's own, with ids of its own (measured 23 October 2026), and Toghen
     // stamps what it placed there: inside a slot, a layer is no longer inside the instance.
     const inside = node.slot !== undefined && inInstance ? false : inInstance || node.type === 'INSTANCE';
-    const children = (node.children ?? []).map((child) => view(child, out as unknown as SceneNode, inside));
+    const children = (node.children ?? []).map((child) => (node.type === 'PAGE' ? keep : view)(child, out as unknown as SceneNode, inside));
     out.children = children;
     // A member's definitions, Figma's way: read on the set, not on a member of one.
     const definitions = (slots?: Unreported['slots']): ComponentPropertyDefinitions => {
