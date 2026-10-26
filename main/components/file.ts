@@ -15,7 +15,7 @@
 
 import type { Collection, Part, Resolver } from '@toghen/lib';
 import { readBlueprint, readComponentFile } from '../../shared/components/index.js';
-import type { Blueprint, ComponentFile, Desired, Problem, RunOptions, Step } from '../../shared/components/index.js';
+import type { Blueprint, ComponentFile, Desired, Layer, Problem, RunOptions, Step } from '../../shared/components/index.js';
 import type { CompactReport, StepSummary } from '../../shared/components/steps.js';
 import { getState } from '../runtimeState.js';
 import { designSourceOf } from '../utils/designSource.js';
@@ -112,6 +112,10 @@ export function summarize(step: Step): StepSummary {
     summary.message = `"${step.address}" in ${where} swaps from ${from} to ${to}`;
   }
   if (step.kind === 'CREATE_SET') summary.members = step.members.length;
+  if (step.kind === 'CREATE_ARTBOARD') {
+    const count = (layer: Layer): number => 1 + layer.children.reduce((sum, child) => sum + count(child), 0);
+    summary.layers = count(step.member.tree);
+  }
   if ('message' in step) summary.message = step.message;
   if ('breaks' in step && step.breaks) summary.breaks = step.breaks;
   return summary;

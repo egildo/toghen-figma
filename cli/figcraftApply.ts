@@ -991,6 +991,15 @@ export function figcraftWriter(to: Target) {
             wrote.push({ id: idOf(results, made_), layer, is: {} });
             layers.set(layer.address, idOf(results, made_));
           }
+          // What fills a new instance's slot comes in steps of its own, with the slot as their parent, which has an id
+          // only once the instance is made: the plugin's run registers it the same way (`registerSlots`).
+          const instances = made.filter(({ layer }) => layer.kind === 'INSTANCE');
+          if (artboard && instances.length > 0) {
+            scene = await target.scene();
+            for (const { ref: made_, layer } of instances)
+              for (const slot of slotNodesOf(scene.byId(String(idOf(results, made_)))!))
+                layers.set(slotKey(layer.address, slot.name), Number(slot.id));
+          }
           if (artboard) result.created.push(step.layer.address);
           else if (!result.updated.includes(step.member)) result.updated.push(step.member);
           break;

@@ -178,6 +178,8 @@ export interface StepSummary {
   to?: string;
   changes?: string[];
   members?: number;
+  /** A new artboard: how many layers it makes, its frame included, as the run would count them created. */
+  layers?: number;
   message?: string;
   breaks?: string;
 }

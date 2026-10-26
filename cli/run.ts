@@ -644,13 +644,20 @@ async function runSteps(
     } else if (response.type === 'COMPONENT_RUN') {
       const { component: name, report } = response.payload;
       if (report.dryRun && report.steps.some((step) => step.kind === 'CREATE_SET')) created.push(name);
-      // A dry run of a set applies nothing, so what it would update is counted from its steps: the members a write step names.
-      const updated =
-        report.dryRun && !report.artboard
-          ? `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update`
-          : `${report.updated.length} updated`;
+      // A dry run applies nothing, so what it would do is counted from its steps, as the real run would count it: for a set,
+      // the members a write step names; for an artboard, the layers it would make, patch or swap, and remove.
+      const of = (...kinds: string[]) => report.steps.filter((step) => kinds.includes(step.kind));
+      const counts =
+        report.dryRun && report.artboard
+          ? `${of('CREATE_ARTBOARD').reduce((sum, step) => sum + (step.layers ?? 0), 0) + of('CREATE_LAYER', 'REPLACE_LAYER').length} would create · ` +
+            `${new Set(of('PATCH_LAYER', 'SWAP_COMPONENT').map((step) => step.address)).size} would update · ${of('DELETE_LAYER').length} would delete`
+          : `${report.created.length} created · ${
+              report.dryRun
+                ? `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update`
+                : `${report.updated.length} updated`
+            } · ${report.deleted.length} deleted`;
       io.stdout(
-        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(report.steps.length, 'step')} · ${report.created.length} created · ${updated} · ${report.deleted.length} deleted${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}\n`,
+        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(report.steps.length, 'step')} · ${counts}${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}\n`,
       );
       // An artboard's plan is its layers: what is made, patched, moved or removed, one line each.
       if (report.artboard) {

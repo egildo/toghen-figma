@@ -732,6 +732,48 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     }
   });
 
+  const ROWS = join(here, 'fixtures/figcraft/rows.artboard.kdl');
+  const rows = (count: number, label: string): string =>
+    `artboard Rows\nFRAME Rows layoutMode=VERTICAL {\n${Array.from(
+      { length: count },
+      (_, at) =>
+        `    INSTANCE Row${at} component=Holder {\n        slot Content {\n            TEXT Caption${at} characters=(literal)"${label} ${at}"\n        }\n    }\n`,
+    ).join('')}}\n`;
+
+  it('adds an instance and fills its slot on an artboard that exists, and a dry run counts what the run would create and update', async () => {
+    const fake = await startFakeFigcraft();
+    const run = (count: number, label: string, flags: string[] = []) =>
+      sync(fake, flags, { [ROWS]: rows(count, label) }, ['fixtures/figcraft/holder.component.kdl', 'fixtures/figcraft/rows.artboard.kdl']);
+    try {
+      assert.match(
+        (await run(1, 'A', ['--dry-run'])).stdout,
+        /Rows \(dry run\): 1 step · 3 would create · 0 would update · 0 would delete/,
+      );
+      assert.match((await run(1, 'A')).stdout, /Rows: 1 step · 3 created · 0 updated · 0 deleted/);
+
+      // A second row: the instance, then what fills its slot, which has an id only once the instance is made.
+      assert.match(
+        (await run(2, 'A', ['--dry-run'])).stdout,
+        /Rows \(dry run\): 2 steps · 2 would create · 0 would update · 0 would delete/,
+      );
+      const added = await run(2, 'A');
+      assert.equal(added.code, 0, added.stderr);
+      assert.match(added.stdout, /Rows: 2 steps · 2 created · 0 updated · 0 deleted/);
+      assert.equal(named(fake, 'TEXT', 'Caption1').characters, 'A 1');
+
+      // Changed texts: the dry run counts the layers the run then updates.
+      assert.match(
+        (await run(2, 'B', ['--dry-run'])).stdout,
+        /Rows \(dry run\): 2 steps · 0 would create · 2 would update · 0 would delete/,
+      );
+      assert.match((await run(2, 'B')).stdout, /Rows: 2 steps · 0 created · 2 updated · 0 deleted/);
+      const labels = fake.labels.length;
+      read(fake, await run(2, 'B'), /Rows: 0 steps/, labels);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('refuses by name what is not built for FigCraft yet, before it writes anything, a dry run included', async () => {
     const fake = await startFakeFigcraft();
     const path = join(here, 'fixtures/figcraft/button.component.kdl');
