@@ -17,6 +17,8 @@
 - **F5. The comparison is what finds a change made by hand.** A field whose value no longer matches its receipt is reported as changed in Figma and left alone. A run that skips the comparison would not see such a change. *Checked*: `shared/components/diff.ts` (the drift rows, `--overwrite-drift`). *Status*: Confirmed
 - **F6. A set's or an artboard's inputs are more than its file.** What a run writes depends on the component or artboard file, on kdlet's expansion of it (includes, guards, `--input`), on the resolved tokens it names in every mode it pins, on the components it instantiates (locally or through the lock, `--use`), and on Toghen's own code. *Checked*: `main/components/resolve.ts:309` (`locateComponent`, the lock), `cli/main.ts:78` (`--input`, `--use`). *Status*: Confirmed
 
+- **F7. Measured by the reporter on 0.1.4, their three files.** Bench library `sync`, nothing changed: 11 s (was 46–49 s). UI library `sync`, 129 components and 1,784 variables, nothing changed: 2 min 45 s. All 129 artboards, about 53,000 layers, three changed: 9 min 8 s (was 43–45 min). A dry run of all three files: 3 min 29 s (was about 20 min). They still ask for the fingerprints: the UI library run and the full artboard run are now the long ones. *Checked*: the reporter's comment on the GitHub issue, 26 October 2026. *Status*: Confirmed
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### Checking that a large file is in step, in seconds (Priority: P1)
@@ -84,7 +86,7 @@ After changing two component files, a real run writes those two sets, the artboa
 ## Questions *(mandatory when a decision is open)*
 
 1. **Should fingerprints be built now, or after the reporter has measured 0.1.3?**
-   - *Context*: 0.1.3 removed the cost that grew with the square of the file's size. A dry run of 9,686 layers went from 53 s to 2.7 s. The reporter's 53,000-layer file has not been measured with it yet. Fingerprints add a hash that must cover every input (F6); one input left out means a change the run never sees.
+   - *Context*: 0.1.3 removed the cost that grew with the square of the file's size. A dry run of 9,686 layers went from 53 s to 2.7 s. The reporter has now measured (F7): their check went from about 20 min to 3 min 29 s, and a full artboard run is 9 min; they still ask for fingerprints. Fingerprints add a hash that must cover every input (F6); one input left out means a change the run never sees.
    - a. Wait for the measurement: build only if a check of their files still takes more than they can wait. Costs a round trip with the reporter. *Recommended*: the remaining cost may be small enough, and a missed input is a silent wrong answer.
    - b. Build now: the fastest check sooner, at the risk of building what is no longer needed.
 
