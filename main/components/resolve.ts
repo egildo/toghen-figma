@@ -411,9 +411,14 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
     `${label} is in this file (${here}) and in library ${quoted(from.map((f) => f.library))}: a name found in both stops the build; rename one, or name the one to use in the overrides map`;
   const several = (label: string, from: { library: string }[]): string =>
     `${label} is in libraries ${quoted(from.map((f) => f.library))}: name the one to use in the overrides map, as (key)"…"`;
-  // Importing writes to the file, so a dry run says what it would import and imports nothing.
-  const importing = async (label: string, from: string, load: () => Promise<void>): Promise<void> => {
-    if (options.dryRun) return void pending.push(`${label}: would import ${from}`);
+  // Importing writes to the file, so a dry run says what it would import and imports nothing. What an earlier run
+  // imported is in the file already: a dry run that can read it there (`held`) takes it, as the real run would, so the
+  // fields bound to it compare, rather than each being planned as a patch.
+  const importing = async (label: string, from: string, load: () => Promise<void>, held?: () => Promise<boolean>): Promise<void> => {
+    if (options.dryRun) {
+      if (held && (await held())) return;
+      return void pending.push(`${label}: would import ${from}`);
+    }
     try {
       await load();
     } catch {
@@ -510,11 +515,23 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
     into: Map<string, Variable>,
     what: string,
   ): Promise<void> =>
-    importing(label, from, async () => {
-      const variable = await figma.variables.importVariableByKeyAsync(key);
-      if (variable.resolvedType !== type) problems.push(`${label} is a ${variable.resolvedType} variable, but ${what} needs a ${type} one`);
-      else into.set(path, variable);
-    });
+    importing(
+      label,
+      from,
+      async () => {
+        const variable = await figma.variables.importVariableByKeyAsync(key);
+        if (variable.resolvedType !== type)
+          problems.push(`${label} is a ${variable.resolvedType} variable, but ${what} needs a ${type} one`);
+        else into.set(path, variable);
+      },
+      // An imported copy found by its key, where the target lists it under its key (FigCraft does; Figma does not).
+      async () => {
+        const variable = await figma.variables.getVariableByIdAsync(key);
+        if (!variable?.remote || variable.key !== key || variable.resolvedType !== type) return false;
+        into.set(path, variable);
+        return true;
+      },
+    );
 
   // `written` is the path as the file wrote it, which the engine asks for; `path` is what the overrides map replaced it with.
   const lookVariable = async (
@@ -778,11 +795,21 @@ export async function resolve(desired: Desired, options: RunOptions): Promise<Re
     into: Map<string, S>,
   ): Promise<void> => {
     const importStyle = (path: string, label: string, key: string, from: string): Promise<void> =>
-      importing(label, from, async () => {
-        const style = await figma.importStyleByKeyAsync(key);
-        if (style.type !== styleType) problems.push(`${label} is a ${style.type.toLowerCase()} style, not a ${what}`);
-        else into.set(path, style as S);
-      });
+      importing(
+        label,
+        from,
+        async () => {
+          const style = await figma.importStyleByKeyAsync(key);
+          if (style.type !== styleType) problems.push(`${label} is a ${style.type.toLowerCase()} style, not a ${what}`);
+          else into.set(path, style as S);
+        },
+        async () => {
+          const style = await figma.getStyleByIdAsync(key);
+          if (!style?.remote || style.key !== key || style.type !== styleType) return false;
+          into.set(path, style as S);
+          return true;
+        },
+      );
     for (const [path, where] of wantedStyles) {
       const label = `${what} ${pathKey(path)}${at(where)}`;
       const written = replaced(path, label);

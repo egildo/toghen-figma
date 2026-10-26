@@ -264,6 +264,13 @@ FRAME Gallery layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertica
       assert.equal(second.code, 0, second.stdout + second.stderr);
       assert.match(second.stdout, /Gallery: \d+ steps? · 0 created · 0 updated · 0 deleted/);
       assert.doesNotMatch(second.stdout + second.stderr, /\[object Object\]|foreign|drift/);
+
+      // A dry run after it takes the library's variables and styles the run imported, as the run does, so it plans no
+      // patch for the fields bound to them.
+      const after = await use(fake, ['--dry-run']);
+      assert.equal(after.code, 0, after.stdout + after.stderr);
+      assert.match(after.stdout, /Gallery \(dry run\): \d+ steps? · 0 would create · 0 would update · 0 would delete/);
+      assert.doesNotMatch(after.stdout, /pending: (token|text style)/);
     } finally {
       await fake.close();
     }
