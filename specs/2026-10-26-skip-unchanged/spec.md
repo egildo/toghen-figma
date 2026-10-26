@@ -4,7 +4,7 @@
 
 **Created**: 26 October 2026
 
-**Status**: Ready
+**Status**: Folded
 
 **Input**: User description: "Plan the fingerprints as well." A sibling consumer asked that a run leave alone, without reading it, a component set or an artboard whose inputs have not changed, so that a check that three large files are in step answers in seconds.
 

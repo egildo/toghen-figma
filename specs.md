@@ -1689,6 +1689,16 @@ Its status is the last event observed (R11), each with the fault and what to do 
 
 Results of what the command line asked for go to the shared surface (R2), whose header says `from the command line` (R6), and a component run is shown there too, as counts and rows (R4, R14). The status bar, the tab strip and the other panes are as they were.
 
+### Skipping what has not changed (*built 26 October 2026*; specs/2026-10-26-skip-unchanged)
+
+**A fingerprint of what a run would write.** Every real run that finishes a set or an artboard stamps it with a fingerprint (`fingerprintOf`, `main/components/fingerprint.ts`): a hash of what the run would write for it, after kdlet and resolution. It holds the members as expanded, the source positions left out; the component's properties; the page; for each token, what is written, the variable a field binds with what it holds in each mode, every alias followed to what it holds, or the value a field Figma cannot bind is written as, and the style a field applies; for each component an instance shows, which one it is and its property definitions, against which an instance's properties are written; and this package's version (`shared/version.ts`, kept equal to `package.json` by a test), so a new version reads everything once. Hashed twice, 64 bits in all. A dry run with a name pending has no fingerprint: what it stands for is not written yet.
+
+**Skipped only when asked, and then trusted.** With `skipUnchanged` (`--skip-unchanged`), a set or an artboard found by its stamp alone whose fingerprint is the same is reported `unchanged` and left unread; no step is planned. Without it, every set and artboard is read and compared, as before, and the fingerprint is only written. Ruled by Egildo: the full check stays the default, since only the comparison finds a change made by hand.
+
+**Read only what is compared.** In FigCraft, a dry run with `skipUnchanged` reads each page's top-level frames without what is inside them; a frame's insides are read when a run compares it (`loadAsync`, which the snapshot asks for). Sets are read whole, since instances are resolved in them. A dry run that skips a frame does not look in it for a person's copy of a stamped layer elsewhere.
+
+**What a fingerprint does not see.** A change made by hand. A change inside a library's component that leaves its property definitions as they were: the instances follow their main, and nothing on the artboard is written for it. A run that stopped partway after it wrote, followed by the inputs changed back to the fingerprint's: the stamp still holds the old fingerprint, which matches again. A real run without the flag sets each right.
+
 ### A dry run across steps
 
 A dry run of `sync` writes nothing, so after its variable step the variables it planned still do not exist. The component step then looks them up, finds nothing, and the engine throws, because a name that does not resolve stops a run before any write. A dry run that fails wherever a run would succeed is no use.

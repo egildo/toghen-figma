@@ -1000,6 +1000,7 @@ interface Stamp {
   id?: string;                       // the Figma id of the object it was written on; absent on a stamp written before it was recorded
   receipt: Record<string, string>;   // field Toghen owns → hash of what Figma reported right after the write
   placed?: { x: number; y: number }; // a set or an artboard's frame: where Toghen last put it
+  fingerprint?: string;              // a set or an artboard's frame: what the last real run that finished it would write, hashed (`fingerprintOf`)
 }
 
 interface Identity {                 // one facet or more; a member's root is a member and a layer
@@ -1319,6 +1320,7 @@ interface Report {
   breaking: string[]; // what breaks instances elsewhere: a member deleted, a layer replaced, a property deleted or retyped
   warnings: string[]; // things the engine noticed that did not stop it
   pending: string[];  // names a dry run counted as present because `pending` said they would be created, one line each; empty for a real run
+  unchanged?: true;   // left unread by `skipUnchanged`: its stamp holds the fingerprint of what the run would write; no step was planned
 }
 ```
 
