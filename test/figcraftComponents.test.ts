@@ -775,6 +775,49 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     }
   });
 
+  it('removes a layer with what it holds in one step, and passes over a removed layer that went with what replaced its parent', async () => {
+    const fake = await startFakeFigcraft();
+    const NEST = join(here, 'fixtures/figcraft/nest.artboard.kdl');
+    const before = `artboard Nest
+FRAME Nest layoutMode=VERTICAL {
+    TEXT Title characters=(literal)"Nest"
+    FRAME Part layoutMode=VERTICAL {
+        TEXT Head characters=(literal)"Head"
+        FRAME Box layoutMode=VERTICAL {
+            TEXT Note characters=(literal)"Note"
+        }
+    }
+    FRAME Swap layoutMode=VERTICAL {
+        TEXT Inner characters=(literal)"Inner"
+    }
+}
+`;
+    const after = `artboard Nest
+FRAME Nest layoutMode=VERTICAL {
+    TEXT Title characters=(literal)"Nest"
+    TEXT Swap characters=(literal)"Swap"
+}
+`;
+    const run = (text: string, flags: string[] = []) => sync(fake, flags, { [NEST]: text }, ['fixtures/figcraft/nest.artboard.kdl']);
+    try {
+      assert.equal((await run(before)).code, 0);
+      const dry = await run(after, ['--dry-run']);
+      // Part, with Head, Box and Note in it, is one removal; Inner is one of its own, since Swap is made again.
+      assert.deepEqual(
+        [...dry.stdout.matchAll(/layer "([^"]+)" is no longer in the file/g)].map((match) => match[1]),
+        ['Part', 'Inner'],
+      );
+      const done = await run(after, ['--allow-breaking']);
+      assert.equal(done.code, 0, done.stderr);
+      assert.match(done.stdout, /Nest: 3 steps · 1 created · 0 updated · 2 deleted/);
+      for (const name of ['Part', 'Head', 'Box', 'Note', 'Inner'])
+        assert.ok(!layers(fake).some((node) => node.name === name), `"${name}" is still in the file`);
+      assert.equal(named(fake, 'TEXT', 'Swap').characters, 'Swap');
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('skips, with --skip-unchanged, a set or artboard whose fingerprint is the same, unread, and reads and plans one that changed', async () => {
     const fake = await startFakeFigcraft();
     const run = (note: string, flags: string[] = []) => sync(fake, flags, boards(note), boardFiles);

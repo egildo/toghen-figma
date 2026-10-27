@@ -852,6 +852,17 @@ export function figcraftWriter(to: Target) {
     let scene = await target.scene();
     const root = scene.byId(rootId);
     if (!root) throw new Error(`${artboard ? 'the artboard' : 'the component set'} ${rootId} is no longer in the file`);
+    // What a delete or a replace took with it: a later delete of a layer in there finds nothing, and is done already,
+    // as the plugin's writer takes it (`applyArtboardUpdate`).
+    const gone = new Set<string>();
+    const goes = (id: string): void => {
+      const visit = (node: SceneNode): void => {
+        gone.add(node.id);
+        for (const child of 'children' in node ? node.children : []) visit(child);
+      };
+      const node = scene.byId(id);
+      if (node) visit(node);
+    };
     const page = (() => {
       let up: BaseNode | null = root;
       while (up && up.type !== 'PAGE') up = up.parent;
@@ -983,7 +994,10 @@ export function figcraftWriter(to: Target) {
             id: ref,
             index: indexFor(parent, step.after !== undefined ? layers.get(step.after) : undefined, step.after !== undefined),
           });
-          if (step.kind === 'REPLACE_LAYER') batch.add('edit.delete', { ids: [Number(step.nodeId)] });
+          if (step.kind === 'REPLACE_LAYER') {
+            batch.add('edit.delete', { ids: [Number(step.nodeId)] });
+            goes(step.nodeId);
+          }
           wireCommands(batch, build);
           const results = await send(`${step.kind === 'CREATE_LAYER' ? 'Add' : 'Replace'} ${step.layer.address}`, batch);
           if (step.kind === 'REPLACE_LAYER') stripAll(step.strip);
@@ -1041,8 +1055,11 @@ export function figcraftWriter(to: Target) {
           break;
         }
         case 'DELETE_LAYER':
-          batch.add('edit.delete', { ids: [Number(step.nodeId)] });
-          await send(`Delete ${step.address}`, batch);
+          if (!gone.has(step.nodeId)) {
+            goes(step.nodeId);
+            batch.add('edit.delete', { ids: [Number(step.nodeId)] });
+            await send(`Delete ${step.address}`, batch);
+          }
           stripAll(step.strip);
           if (artboard) result.deleted.push(step.address);
           else if (!result.updated.includes(step.member)) result.updated.push(step.member);

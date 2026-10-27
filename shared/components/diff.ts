@@ -472,9 +472,13 @@ function diffMember(member: Member, snap: MemberSnapshot, component: string, art
 
   // Deletions last: what a deleted layer held that the file still wants has been moved out by now.
   const wanted = new Set(layers.map((entry) => entry.layer.address));
+  // A layer whose parent is removed goes with it, so it has no step of its own: a second delete would find nothing.
+  // A parent the file still wants is moved out first, with what it holds, and is no reason to skip.
+  const parentRemoved = (layer: LayerSnapshot): boolean =>
+    layer.parent !== undefined && byAddress.has(layer.parent) && !wanted.has(layer.parent);
   for (const layer of byAddress.values()) {
     // A layer that is made again is not removed here: the old one went with what replaced its parent.
-    if (wanted.has(layer.address)) continue;
+    if (wanted.has(layer.address) || parentRemoved(layer)) continue;
     steps.push({
       kind: 'DELETE_LAYER',
       ...context,
