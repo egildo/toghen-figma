@@ -1,6 +1,7 @@
 /**
  * A document's sum is built once and shared: a run asks for it in each plan and each component file, and on a large
  * document each build is most of a second. A different base name, map or set of unfolded groups is a different sum.
+ * The snapshots of every token in every mode are taken once too, for the same reason.
  * Synthetic tokens in the W3C structured shapes.
  */
 
@@ -8,6 +9,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Resolver, type ResolverDocument } from '@toghen/lib';
 import { setUnfolded } from '../main/utils/folds.js';
+import { resolveSumModes, snapshotModes } from '../main/utils/resolverModes.js';
 import { buildSum } from '../main/utils/sum.js';
 import { defaultTokenTypeMap } from '../shared/tokenTypeMap.js';
 
@@ -63,5 +65,25 @@ describe('the sum of a document', () => {
       buildSum(new Resolver(DOCUMENT), 'Demo', defaultTokenTypeMap),
       buildSum(new Resolver(DOCUMENT), 'Demo', defaultTokenTypeMap),
     );
+  });
+});
+
+describe('the snapshots of every mode', () => {
+  it('are taken once for a document, and read every mode', () => {
+    const resolver = new Resolver(DOCUMENT);
+    const first = snapshotModes(resolveSumModes(resolver));
+    assert.equal(snapshotModes(resolveSumModes(resolver)), first);
+    const surface = `${resolveSumModes(resolver).dsCollectionName}.color.surface`;
+    const components = first.map(
+      (snapshot) => (snapshot.pathToToken.get(surface)?.value as { components?: number[] } | undefined)?.components,
+    );
+    assert.deepEqual(components, [
+      [1, 1, 1],
+      [0.1, 0.1, 0.1],
+    ]);
+  });
+
+  it('are not shared between two documents', () => {
+    assert.notEqual(snapshotModes(resolveSumModes(new Resolver(DOCUMENT))), snapshotModes(resolveSumModes(new Resolver(DOCUMENT))));
   });
 });

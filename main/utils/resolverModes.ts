@@ -158,8 +158,22 @@ const sums = new WeakMap<Resolver, MultiModeResolution>();
  *
  * @param resolution - Output of {@link resolveSumModes}
  * @returns One snapshot per mode, in `modeNames` order
+ *
+ * Taken once for each resolution, and shared: a run asks for them in the style plan, the style names and each
+ * component file's groups, and on a large document each taking is most of a second. No caller changes them.
  */
 export function snapshotModes(resolution: MultiModeResolution): ModeSnapshot[] {
+  const taken = snapshotsTaken.get(resolution);
+  if (taken) return taken;
+  const snapshots = takeSnapshots(resolution);
+  snapshotsTaken.set(resolution, snapshots);
+  return snapshots;
+}
+
+/** The snapshots already taken, by resolution: a resolution is built once per document (`resolveSumModes`) and does not change. */
+const snapshotsTaken = new WeakMap<MultiModeResolution, ModeSnapshot[]>();
+
+function takeSnapshots(resolution: MultiModeResolution): ModeSnapshot[] {
   const { ds, dsCollectionName, modeNames } = resolution;
   const collection = ds.getCollection(dsCollectionName);
   if (!collection) return [];
