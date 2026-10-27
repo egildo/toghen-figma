@@ -201,11 +201,12 @@ export function checkComponents(
   files: { fileName: string; text: string }[],
   options: { names: boolean; inputs?: Record<string, unknown> },
   resolver: Resolver | null,
-): { errors: string[]; warnings: string[]; components: string[] } {
+): { errors: string[]; warnings: string[]; components: string[]; artboards: string[] } {
   const problems: string[] = [];
   const warnings: string[] = [];
   const unfold: string[] = [];
   const components: string[] = [];
+  const artboards: string[] = [];
   // Every file first: the groups laid out as one variable per part decide which parts fold, and so which names are variables.
   const reads: { fileName: string; read: ComponentFile }[] = [];
   for (const { fileName, text } of files) {
@@ -215,10 +216,12 @@ export function checkComponents(
     warnings.push(...read.problems.filter((problem) => problem.severity === 'warning').map((problem) => describe(fileName, problem)));
     if (read.component?.layout === 'parts' && read.component.tokens !== undefined) unfold.push(read.component.tokens);
     if (errors.length === 0 && read.component && !read.artboard) components.push(read.component.name);
+    // An artboard is stamped with its frame's name, as `builtNode` finds it.
+    if (errors.length === 0 && read.artboard && read.members[0]) artboards.push(read.members[0].name);
     if (errors.length === 0) reads.push({ fileName, read });
   }
   if (resolver) setUnfolded(resolver, unfold);
-  if (!options.names || !resolver) return { errors: problems, warnings, components };
+  if (!options.names || !resolver) return { errors: problems, warnings, components, artboards };
 
   const { ds, dsCollectionName } = resolveSumModes(resolver);
   const tokens = ds.getCollection(dsCollectionName) as Collection;
@@ -263,5 +266,5 @@ export function checkComponents(
       }
     }
   }
-  return { errors: problems, warnings, components };
+  return { errors: problems, warnings, components, artboards };
 }

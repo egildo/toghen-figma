@@ -531,6 +531,8 @@ export type Command =
         inputs?: Record<string, unknown>;
         dryRun?: boolean;
         allowBreaking?: boolean;
+        /** The files are the whole system: Toghen's sets and artboards none of them declares are listed, and removed at the end of a run allowed to break. */
+        prune?: boolean;
       };
     }
   /**
@@ -580,9 +582,10 @@ export type Response =
   /**
    * Answer to `CHECK_COMPONENTS` when no file has a problem. Otherwise an `ERROR` with `problems`.
    * `strays` are the members outside any set, one breaking line each: present only when there are some, and, unless the
-   * check was for a dry run or `allowBreaking`, they are `problems` instead.
+   * check was for a dry run or `allowBreaking`, they are `problems` instead. `orphans` are the same for the sets and
+   * artboards no file declares, found only with `prune`.
    */
-  | { type: 'COMPONENTS_CHECKED'; payload: { files: number; strays?: string[] } }
+  | { type: 'COMPONENTS_CHECKED'; payload: { files: number; strays?: string[]; orphans?: string[] } }
   /** Answer to `FINISH_COMPONENTS`. */
   | { type: 'COMPONENTS_FINISHED'; payload: { removed: string[]; moved: string[]; notes: string[] } }
   | { type: 'ERROR'; payload: ErrorPayload };

@@ -818,6 +818,44 @@ FRAME Nest layoutMode=VERTICAL {
     }
   });
 
+  it('lists, with --prune, an artboard no file declares: a dry run fails on it, and a run allowed to break removes it from the file', async () => {
+    const fake = await startFakeFigcraft();
+    const without = async (flags: string[]) => {
+      let stdout = '';
+      let stderr = '';
+      const io: Io = {
+        cwd: here,
+        readFile: (path) => readFileSync(path, 'utf8'),
+        stdout: (text) => (stdout += text),
+        stderr: (text) => (stderr += text),
+        pairingFile: join(here, 'never-written'),
+      };
+      const code = await main(
+        ['sync', 'fixtures/sample.resolver.json', ...FILES.slice(0, 2), '--figcraft', String(fake.port), '--prune', ...flags],
+        io,
+      );
+      return { code, stdout, stderr };
+    };
+    try {
+      assert.equal((await sync(fake)).code, 0);
+      const showcase = named(fake, 'FRAME', 'Showcase');
+      const dry = await without(['--dry-run']);
+      assert.equal(dry.code, 1);
+      assert.match(dry.stdout, new RegExp(`breaking: the artboard "Showcase" \\(${showcase.id}\\) on page "[^"]+" has no source`));
+      assert.match(dry.stderr, /one set or artboard has no source; a run with --prune and --allow-breaking removes it/);
+      const stopped = await without([]);
+      assert.equal(stopped.code, 1);
+      assert.ok(layers(fake).includes(showcase), 'a run without --allow-breaking writes nothing');
+      const done = await without(['--allow-breaking']);
+      assert.equal(done.code, 0, done.stderr);
+      assert.match(done.stdout, new RegExp(`removed the artboard "Showcase" \\(${showcase.id}\\)`));
+      assert.ok(!layers(fake).some((node) => node.name === 'Showcase'), 'the artboard is gone from the file');
+      assert.ok(named(fake, 'COMPONENT_SET', 'Button'), 'what the files declare stays');
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('skips, with --skip-unchanged, a set or artboard whose fingerprint is the same, unread, and reads and plans one that changed', async () => {
     const fake = await startFakeFigcraft();
     const run = (note: string, flags: string[] = []) => sync(fake, flags, boards(note), boardFiles);

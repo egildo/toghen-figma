@@ -1,6 +1,6 @@
 import type { Command, Response } from '../../shared/protocol.js';
 import { ComponentRunError } from '../components/errors.js';
-import { beginRun, findStrays, finishRun, strayLine } from '../components/endOfRun.js';
+import { beginRun, findOrphans, findStrays, finishRun, notePruning, orphanLine, strayLine } from '../components/endOfRun.js';
 import { checkComponents, runComponentFile } from '../components/file.js';
 import { brokenSetProblems } from '../components/snapshot.js';
 import { getState } from '../runtimeState.js';
@@ -32,7 +32,7 @@ export async function RUN_COMPONENT(payload: RunComponentCommand['payload']): Pr
 
 /** Reads every file and says every problem of every file, and which of their sets Figma already reports as broken, writing nothing. */
 export async function CHECK_COMPONENTS(payload: CheckComponentsCommand['payload']): Promise<void> {
-  const { errors, components } = checkComponents(
+  const { errors, components, artboards } = checkComponents(
     payload.files,
     { names: payload.names === true, ...(payload.inputs ? { inputs: payload.inputs } : {}) },
     getState().resolver,
@@ -42,8 +42,19 @@ export async function CHECK_COMPONENTS(payload: CheckComponentsCommand['payload'
   beginRun();
   const strays = payload.files.length > 0 ? (await findStrays()).map(strayLine) : [];
   if (strays.length > 0 && !payload.dryRun && !payload.allowBreaking) problems.push(...strays);
+  // With --prune the files are the whole system: what none declares is breaking, as a stray is, and goes at the end.
+  let orphans: string[] = [];
+  if (payload.prune && errors.length === 0) {
+    const declared = { components: new Set(components), artboards: new Set(artboards) };
+    notePruning(declared);
+    orphans = (await findOrphans(declared)).map(orphanLine);
+    if (orphans.length > 0 && !payload.dryRun && !payload.allowBreaking) problems.push(...orphans);
+  }
   if (problems.length === 0)
-    return postToUi({ type: 'COMPONENTS_CHECKED', payload: { files: payload.files.length, ...(strays.length > 0 ? { strays } : {}) } });
+    return postToUi({
+      type: 'COMPONENTS_CHECKED',
+      payload: { files: payload.files.length, ...(strays.length > 0 ? { strays } : {}), ...(orphans.length > 0 ? { orphans } : {}) },
+    });
   postToUi({
     type: 'ERROR',
     payload: {

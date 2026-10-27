@@ -897,7 +897,11 @@ export async function bridgeOn(control: Control, pin: Pin, say: Say, owns: boole
         await handler(command.payload);
         if (layers) await flushScene(`Toghen: ${command.type === 'FINISH_COMPONENTS' ? 'restack' : 'stamps'}`);
       } catch (error) {
-        posted.push({ type: 'ERROR', payload: { message: (error as Error).message, code: 'FIGMA_API_ERROR', commandType: command.type } });
+        // First: what the handler posted before a write after it failed is not the answer, since the write did not land.
+        posted.unshift({
+          type: 'ERROR',
+          payload: { message: (error as Error).message, code: 'FIGMA_API_ERROR', commandType: command.type },
+        });
       }
       for (const response of posted.splice(0)) {
         if (answers.includes(response.type) || response.type === 'ERROR') return response;

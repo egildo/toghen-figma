@@ -4,7 +4,7 @@
 
 **Created**: 27 October 2026
 
-**Status**: Planned; questions open
+**Status**: Folded
 
 **Input**: User description: "write a plan with questions for removing what has no source; I'll rule on it." A consumer deleted a component from their source: its component file and its artboard file are gone. After a full build the library still holds the component's set, and the file of artboards still holds its artboard. A dry run over the remaining files says both files are in step. They ask for either a way to remove what Toghen made from a source that no longer exists, or a listing of it so a script can fail on it.
 
@@ -86,3 +86,10 @@ The maintainer accepts the removal; a real run removes the set and the artboard,
 
 - The Figma target gets the same: the engine is shared.
 - Variables and styles are out of scope: the variable sync already removes a variable whose token is gone, and its own breaking gate covers it.
+
+## Answers (27 October 2026)
+
+1. a. A flag on the run, `--prune`: the files given are the whole system.
+2. a. A real run removes them only with `--allow-breaking` too.
+3. a. A page left empty is left as it is, and the run says so.
+4. a. A dry run with `--prune` is the listing, and exits non-zero when it lists anything.

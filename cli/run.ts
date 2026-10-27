@@ -67,6 +67,8 @@ export interface RunArguments extends LoadArguments {
   overwriteDrift?: boolean;
   /** Leave unread each set and artboard whose stamp holds the fingerprint of what the run would write for it. */
   skipUnchanged?: boolean;
+  /** The files are the whole system: list, and with `allowBreaking` remove, each set and artboard Toghen made that none declares. */
+  prune?: boolean;
   /** List every skip, the quiet ones too, and every patch of a component set with its fields. */
   verbose?: boolean;
   /** Run into the file FigCraft shows, through its control socket on this port, instead of through the plugin. */
@@ -497,6 +499,7 @@ async function runSteps(
 
   // The plugin reads every file before anything is written: a design half applied is worse than none. A sync also has the
   // names each file writes checked against the design system it is about to build.
+  let orphans = 0;
   if (components.length > 0) {
     const checked = await bridge.request(
       {
@@ -507,6 +510,7 @@ async function runSteps(
           ...(inputs ? { inputs } : {}),
           dryRun: args.dryRun,
           ...(args.allowBreaking ? { allowBreaking: true } : {}),
+          ...(args.prune ? { prune: true } : {}),
         },
       },
       ['COMPONENTS_CHECKED'],
@@ -517,6 +521,9 @@ async function runSteps(
     }
     // Members outside any set are breaking: a dry run lists them, a run with --allow-breaking removes them at its end.
     if (checked.type === 'COMPONENTS_CHECKED') for (const line of checked.payload.strays ?? []) io.stdout(`breaking: ${line}\n`);
+    // With --prune, so are the sets and artboards no file declares; a dry run that lists any fails, for a check to catch it.
+    if (checked.type === 'COMPONENTS_CHECKED') orphans = checked.payload.orphans?.length ?? 0;
+    for (const line of (checked.type === 'COMPONENTS_CHECKED' && checked.payload.orphans) || []) io.stdout(`breaking: ${line}\n`);
   }
 
   // The component files go in dependency order, in a real run and a dry run alike (`shared/components/order.ts`):
@@ -713,6 +720,12 @@ async function runSteps(
       for (const line of [...finished.payload.removed, ...finished.payload.moved]) io.stdout(`${line}\n`);
       for (const line of finished.payload.notes) io.stdout(`  note: ${line}\n`);
     }
+  }
+  if (args.dryRun && orphans > 0) {
+    io.stderr(
+      `${orphans === 1 ? 'one set or artboard has' : `${orphans} sets and artboards have`} no source; a run with --prune and --allow-breaking removes ${orphans === 1 ? 'it' : 'them'}.\n`,
+    );
+    exit = 1;
   }
   // 7. Exit. The plugin stays open, and finds the next run by itself.
   return exit;

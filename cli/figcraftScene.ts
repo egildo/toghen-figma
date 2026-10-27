@@ -172,7 +172,8 @@ export function writeSteps(writes: Writes): Array<{ command: string; params: Rec
     ...[...writes.data].map(([id, pluginData]) => ({ command: 'node.set', params: { ids: [id], props: { pluginData } } })),
     ...[...writes.moved].map(([id, { x, y }]) => ({ command: 'node.set', params: { ids: [id], props: { x, y } } })),
     ...[...writes.sized].map(([id, { width, height }]) => ({ command: 'node.set', params: { ids: [id], props: { width, height } } })),
-    ...(writes.removed.length > 0 ? [{ command: 'edit.delete', params: { ids: writes.removed } }] : []),
+    // A copy: the writes are cleared before the steps are sent.
+    ...(writes.removed.length > 0 ? [{ command: 'edit.delete', params: { ids: [...writes.removed] } }] : []),
   ];
 }
 
