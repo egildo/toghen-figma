@@ -58,6 +58,12 @@ export interface Identity {
   artboard?: string;
 }
 
+/** A variable a field was bound to when Toghen wrote it. */
+export interface BoundVariable {
+  id: string;
+  name: string;
+}
+
 /** What Toghen keeps on an object it wrote. */
 export interface Stamp {
   is: Identity;
@@ -68,6 +74,12 @@ export interface Stamp {
   id?: string;
   /** For each field Toghen owns on the object, a hash of what Figma reported right after Toghen wrote it (`receiptOf`). */
   receipt: Record<string, string>;
+  /**
+   * For each field Toghen bound when it wrote it, the variables it was bound to, by id and by name. A field that no
+   * longer shows its receipt, whose variable is gone or whose id now names another, lost its binding with the variable,
+   * not by hand (`orphaned`). Absent on a stamp written before it was recorded.
+   */
+  bound?: Record<string, BoundVariable[]>;
   /** On a set or an artboard's frame: where Toghen last put it. A node whose position still equals it has not been moved by hand. */
   placed?: Position;
   /**
@@ -127,10 +139,16 @@ export function getStamp(object: PluginDataMixin): Stamp | undefined {
     if (Object.keys(is).length === 0) return undefined;
     const receipt: Record<string, string> = {};
     for (const [field, hash] of Object.entries(parsed.receipt)) if (typeof hash === 'string') receipt[field] = hash;
+    const bound: Record<string, BoundVariable[]> = {};
+    if (isRecord(parsed.bound))
+      for (const [field, variables] of Object.entries(parsed.bound))
+        if (Array.isArray(variables))
+          bound[field] = variables.filter((v): v is BoundVariable => isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string');
     return {
       is,
       ...(typeof parsed.id === 'string' ? { id: parsed.id } : {}),
       receipt,
+      ...(Object.keys(bound).length > 0 ? { bound } : {}),
       ...positionOf(parsed.placed),
       ...(typeof parsed.fingerprint === 'string' ? { fingerprint: parsed.fingerprint } : {}),
     };
@@ -186,9 +204,11 @@ export function updateStamp(node: Stamped, change: Partial<Stamp>): void {
   const held = stampOn(node);
   const placed = change.placed ?? held?.placed;
   const fingerprint = change.fingerprint ?? held?.fingerprint;
+  const bound = change.bound ?? held?.bound;
   const next: Stamp = {
     is: { ...held?.is, ...change.is },
     receipt: change.receipt ?? held?.receipt ?? {},
+    ...(bound && Object.keys(bound).length > 0 ? { bound } : {}),
     ...(placed ? { placed } : {}),
     ...(fingerprint ? { fingerprint } : {}),
   };

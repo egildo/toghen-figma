@@ -65,16 +65,18 @@ function refusedInFigma(desired: Desired): string[] {
 }
 
 /** What a plan says about what it leaves alone, what it overwrites and what it breaks, for the report. */
-function describe(steps: Step[]): Pick<Report, 'notes' | 'breaking' | 'warnings'> {
+function describe(steps: Step[]): Pick<Report, 'notes' | 'breaking' | 'warnings' | 'drifted'> {
   const notes: string[] = [];
   const breaking: string[] = [];
   const warnings: string[] = [];
+  let drifted = 0;
   for (const step of steps) {
     if (step.kind === 'LEAVE') notes.push(step.message);
+    if (step.kind === 'LEAVE' && step.what === 'drift') drifted++;
     if (step.kind === 'OVERWRITE') warnings.push(step.message);
     if ('breaks' in step && step.breaks) breaking.push(step.breaks);
   }
-  return { notes, breaking, warnings };
+  return { notes, breaking, warnings, ...(drifted > 0 ? { drifted } : {}) };
 }
 
 /**

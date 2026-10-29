@@ -121,6 +121,7 @@ describe('component files into FigCraft, end to end', () => {
 
       const kept = await sync(fake);
       assert.equal(kept.code, 0, kept.stderr);
+      assert.match(kept.stdout, /Button: .* · 1 drifted\n/, 'the summary counts it');
       assert.match(
         kept.stdout,
         /"Size=small", layer "Button": "paddingTop" was changed in Figma since Toghen wrote it, and was left as it is/,
@@ -131,6 +132,33 @@ describe('component files into FigCraft, end to end', () => {
       const overwritten = await sync(fake, ['--overwrite-drift']);
       assert.equal(overwritten.code, 0, overwritten.stderr);
       assert.ok(named(fake, 'COMPONENT', 'Size=small').boundVariables.paddingTop, 'bound again');
+      assert.doesNotMatch((await sync(fake)).stdout, /changed in Figma/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('binds again, without --overwrite-drift, a field whose variable was removed and took the binding with it', async () => {
+    const fake = await startFakeFigcraft();
+    try {
+      assert.equal((await sync(fake)).code, 0);
+      const small = named(fake, 'COMPONENT', 'Size=small');
+      const bound = small.boundVariables.paddingTop;
+      const id = typeof bound === 'string' ? bound : bound.id;
+      assert.deepEqual(
+        stampOf(small).bound.paddingTop.map((v: { id: string }) => v.id),
+        [id],
+        'the stamp records what the field was bound to',
+      );
+      // What a breaking move does: the variable is deleted and its binding goes with it; the sync makes it again, anew.
+      fake.tabs[0].variables = fake.tabs[0].variables.filter((variable) => variable.id !== id);
+      delete small.boundVariables.paddingTop;
+
+      const rebound = await sync(fake);
+      assert.equal(rebound.code, 0, rebound.stderr);
+      assert.doesNotMatch(rebound.stdout, /changed in Figma/);
+      const now = named(fake, 'COMPONENT', 'Size=small').boundVariables.paddingTop;
+      assert.ok(now && (typeof now === 'string' ? now : now.id) !== id, 'bound to the variable made again');
       assert.doesNotMatch((await sync(fake)).stdout, /changed in Figma/);
     } finally {
       await fake.close();

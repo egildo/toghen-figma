@@ -168,6 +168,8 @@ export interface Report {
   breaking: string[];
   /** Things the engine noticed that did not stop it. */
   warnings: string[];
+  /** How many fields were kept as hand edits (`LEAVE` drift), when any: the summary line counts them. */
+  drifted?: number;
   /** Names a dry run counted as present because `pending` said an earlier step would create them. Empty for a real run. */
   pending: string[];
   /** Left unread by `skipUnchanged`: its stamp holds the fingerprint of what the run would write. No step was planned. */

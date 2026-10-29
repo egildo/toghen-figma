@@ -672,8 +672,10 @@ async function runSteps(
                 ? `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update`
                 : `${report.updated.length} updated`
             } · ${report.deleted.length} deleted`;
+      // Fields kept as hand edits, counted: their notes are among the many standing ones and easy to miss.
+      const { drifted } = report;
       io.stdout(
-        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(report.steps.length, 'step')} · ${counts}${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}\n`,
+        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(report.steps.length, 'step')} · ${counts}${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}${drifted ? ` · ${drifted} drifted` : ''}\n`,
       );
       // An artboard's plan is its layers: what is made, patched, moved or removed, one line each.
       if (report.artboard) {

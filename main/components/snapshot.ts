@@ -25,7 +25,7 @@ import type { LayerKind, SlotSettings as SlotModelSettings } from '../../shared/
 import { slotNodesOf } from './apply.js';
 import { ComponentRunError } from './errors.js';
 import { isOwn, receiptOf, sortNodes, stampedAs, stampOn, type Sorted, type Stamp } from './stamp.js';
-import { reportedOf } from './receipt.js';
+import { orphanedOf, reportedOf } from './receipt.js';
 import { loadLock } from '../utils/lockStore.js';
 
 const LAYER_TYPES: Record<string, LayerKind> = { FRAME: 'FRAME', SLOT: 'SLOT', TEXT: 'TEXT', INSTANCE: 'INSTANCE', LINE: 'LINE' };
@@ -36,18 +36,23 @@ const LAYER_TYPES: Record<string, LayerKind> = { FRAME: 'FRAME', SLOT: 'SLOT', T
  */
 async function receiptAndReported(
   node: SceneNode,
-  receipt: Record<string, string>,
+  stamp: Stamp,
   libraryOf: () => Map<string, string>,
-): Promise<Pick<LayerSnapshot, 'receipt' | 'reported' | 'main'>> {
+): Promise<Pick<LayerSnapshot, 'receipt' | 'reported' | 'main' | 'orphaned'>> {
+  const { receipt } = stamp;
   const fields = Object.keys(receipt).filter((field) => receipt[field] !== '');
-  if (node.type !== 'INSTANCE') return { receipt, reported: receiptOf(await reportedOf(node, fields)) };
-  const reported = receiptOf(await reportedOf(node, fields.includes('component') ? fields : [...fields, 'component']));
+  const read = async (names: string[]) => {
+    const reported = receiptOf(await reportedOf(node, names));
+    const orphaned = await orphanedOf(stamp.bound, receipt, reported);
+    return { receipt, reported, ...(orphaned.length > 0 ? { orphaned } : {}) };
+  };
+  if (node.type !== 'INSTANCE') return read(fields);
+  const own = await read(fields.includes('component') ? fields : [...fields, 'component']);
   const component = await node.getMainComponentAsync();
   const shown = component?.parent?.type === 'COMPONENT_SET' ? component.parent : component;
-  if (!shown) return { receipt, reported };
+  if (!shown) return own;
   return {
-    receipt,
-    reported,
+    ...own,
     main: { name: shown.name, key: shown.key, ...(shown.remote ? { library: libraryOf().get(shown.key) ?? '' } : {}) },
   };
 }
@@ -167,7 +172,7 @@ async function snapshotTree(root: ComponentNode | FrameNode, name: string, slots
         address: entry.address,
         kind: entry.kind,
         index: entry.index,
-        ...(await receiptAndReported(node, entry.stamp.receipt, libraryOf)),
+        ...(await receiptAndReported(node, entry.stamp, libraryOf)),
         ...parent,
         ...(entry.moved ? { moved: true } : {}),
       });

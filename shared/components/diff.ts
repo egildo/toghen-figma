@@ -47,6 +47,8 @@ export interface LayerSnapshot {
    * library the lock holds its key under (empty when none). `reported.component` is then always read, receipt or not.
    */
   main?: { name: string; key: string; library?: string };
+  /** Fields that lost their binding with their variable, which the sync removed: not drift, and written (`orphanedOf`). */
+  orphaned?: string[];
 }
 
 export interface MemberSnapshot {
@@ -344,6 +346,7 @@ function diffMember(member: Member, snap: MemberSnapshot, component: string, art
       const held = existing?.receipt[field];
       if (!held) fields.push(field);
       else if (existing.reported[field] !== held && existing.reported[field] === expected[field]) restamp.push(field);
+      else if (existing.orphaned?.includes(field)) fields.push(field);
       else if (existing.reported[field] !== held) {
         const at = `${what} "${member.name}", layer "${layer.address}": "${field}" was changed in Figma since Toghen wrote it`;
         if (receipts?.overwriteDrift) {

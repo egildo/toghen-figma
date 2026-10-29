@@ -38,7 +38,7 @@ import {
   withAlias,
 } from './fieldWriter.js';
 import type { Resolved } from './resolve.js';
-import { receiptOf, stampOn, updateStamp } from './stamp.js';
+import { receiptOf, stampOn, updateStamp, type BoundVariable } from './stamp.js';
 
 /** A layer Toghen wrote in this run, and the fields it wrote: every field it declares when `fields` is absent. */
 export interface Written {
@@ -219,10 +219,58 @@ export async function stampReceipts(written: Written[]): Promise<void> {
   for (const { node, layer, fields } of written) {
     if (node.removed) continue;
     const names = fieldNames(layer);
-    const now = receiptOf(await reportedOf(node, fields ?? names));
-    const held = stampOn(node)?.receipt ?? {};
+    const reported = await reportedOf(node, fields ?? names);
+    const now = receiptOf(reported);
+    const stamp = stampOn(node);
+    const held = stamp?.receipt ?? {};
     const receipt: Record<string, string> = {};
-    for (const name of names) receipt[name] = now[name] ?? held[name] ?? '';
-    updateStamp(node, { receipt });
+    const bound: Record<string, BoundVariable[]> = {};
+    for (const name of names) {
+      receipt[name] = now[name] ?? held[name] ?? '';
+      const variables = name in reported ? await boundIn(reported[name]) : stamp?.bound?.[name];
+      if (variables && variables.length > 0) bound[name] = variables;
+    }
+    updateStamp(node, { receipt, bound });
   }
+}
+
+/** The variables a reported value is bound to: every `variable` in it that names one, by id and name. */
+async function boundIn(value: unknown): Promise<BoundVariable[]> {
+  const ids = new Set<string>();
+  const walk = (at: unknown): void => {
+    if (Array.isArray(at)) at.forEach(walk);
+    else if (typeof at === 'object' && at !== null)
+      for (const [key, inner] of Object.entries(at)) {
+        if (key === 'variable' && typeof inner === 'string') ids.add(inner);
+        else walk(inner);
+      }
+  };
+  walk(value);
+  const out: BoundVariable[] = [];
+  for (const id of ids) {
+    const variable = await figma.variables.getVariableByIdAsync(id);
+    if (variable) out.push({ id, name: variable.name });
+  }
+  return out;
+}
+
+/**
+ * The fields of a stamped layer that lost their binding with their variable: Figma no longer shows the receipt, and a
+ * variable the field was bound to is gone, or its id now names another variable. Such a field was not edited by hand.
+ */
+export async function orphanedOf(
+  bound: Record<string, BoundVariable[]> | undefined,
+  receipt: Record<string, string>,
+  reported: Record<string, string>,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const [field, variables] of Object.entries(bound ?? {})) {
+    if (reported[field] === receipt[field]) continue;
+    for (const { id, name } of variables) {
+      if ((await figma.variables.getVariableByIdAsync(id))?.name === name) continue;
+      out.push(field);
+      break;
+    }
+  }
+  return out;
 }
