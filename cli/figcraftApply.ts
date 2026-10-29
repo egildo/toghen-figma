@@ -297,7 +297,7 @@ function fieldCommands(batch: Batch, build: Build, ref: Ref, layer: Layer, root:
   const bind = (field: string, variable: string | null): void => void batch.add('variable.bind', { ids: [ref], field, variable });
   const value = (name: string): Value => f[name] as Value;
   const plainOf = (v: Value): unknown => (v as { value: unknown }).value;
-  const container = layer.kind === 'FRAME';
+  const container = layer.kind === 'FRAME' || layer.kind === 'SLOT';
 
   const writePlain = (name: string): void => {
     const v = value(name);

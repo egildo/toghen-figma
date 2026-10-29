@@ -341,6 +341,7 @@ describe('component files into FigCraft, end to end', () => {
       const holder = named(fake, 'COMPONENT', 'Holder');
       const slot = holder.children!.find((node) => node.name === 'Content')!;
       assert.equal(slot.slot, 'Content');
+      assert.deepEqual(slot.fills, [], 'a slot the file gives no fills loses the white a new frame starts with, as a frame does');
       assert.equal(holder.componentPropertyDefinitions.Content.type, 'slot');
       assert.equal(holder.children!.find((node) => node.name === 'Mark')!.hidden!.fields!.isExposedInstance, true);
       const set = named(fake, 'COMPONENT_SET', 'Holder');
