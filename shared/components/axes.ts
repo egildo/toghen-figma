@@ -53,11 +53,12 @@ export interface DesignSource {
   /**
    * The tokens one level down in a group, for the bindings `tokens=` infers from their keys:
    * `'token'` when the path is a token, not a group; `undefined` when it names nothing. A `selection`
-   * (axis to part key, for the axes left in the path) adds the keys of the part groups it selects, which
-   * outrank the group's own. Absent
+   * (axis to part key) adds the keys of the part groups it selects, ranked by lib's precedence, which
+   * outrank the group's own. A winner whose part is on one of the `folded` axes is a cell of its twin's
+   * variable, so the twin is answered: the variable that carries it, under the member's pins. Absent
    * from a source that cannot say, in which case no binding is inferred.
    */
-  group?(path: string, selection?: Record<string, string>): GroupInfo | 'token' | undefined;
+  group?(path: string, selection?: Record<string, string>, folded?: readonly string[]): GroupInfo | 'token' | undefined;
   /**
    * The names of a group's children, tokens and groups alike, in the document's order, for an axis that takes its
    * values from a group (`VARIANT hue from="{hue}"`): `'token'` when the path is a token; `undefined` when it names
@@ -221,16 +222,26 @@ export function resolveAxes(component: Component, source: DesignSource | undefin
 }
 
 /**
- * The part keys a combination selects on the axes left in the path, axis to key, `rest` left out: the part
- * groups whose tokens a member's layers bind (`variant=primary` binds `button.primary.backgroundColor`).
+ * The part keys a combination selects, axis to key, `rest` left out, on every part axis: lib's precedence ranks the
+ * folded parts with the others (`hover` and a folded `disabled` give `disabled.backgroundColor`), and the design source
+ * binds the variable that carries the winner (`group`). A combination that selects nothing on the axes left in the
+ * path binds the group's own plan.
  */
 export function selectionOf(component: Component, combination: Record<string, string>): Record<string, string> {
   const selection: Record<string, string> = {};
   for (const property of component.properties) {
-    if (property.type === 'VARIANT' && property.part && property.modifier === undefined && combination[property.name] !== REST)
+    if (property.type === 'VARIANT' && property.part && combination[property.name] !== REST)
       selection[property.name] = combination[property.name];
   }
-  return selection;
+  return Object.keys(selection).some((axis) => !foldedAxes(component).includes(axis)) ? selection : {};
+}
+
+/** The part axes a component folds into modes: their parts are cells of their twins' variables. */
+export function foldedAxes(component: Component): string[] {
+  const axes: string[] = [];
+  for (const property of component.properties)
+    if (property.type === 'VARIANT' && property.part && property.modifier !== undefined) axes.push(property.name);
+  return axes;
 }
 
 /**

@@ -50,6 +50,181 @@
           "\"font\" has no field on this layer in Figma, skipped"
         ]
       }
+    },
+    "button|state=hover,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|state=pressed,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|state=disabled,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|variant=primary,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|variant=primary,state=hover,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|variant=primary,state=pressed,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
+    },
+    "button|variant=primary,state=disabled,selection=selected": {
+      "TEXT": {
+        "set": {
+          "fills": "button.color",
+          "textStyle": "button.font"
+        },
+        "notes": [
+          "\"backgroundColor\" has no field on this layer in Figma, skipped",
+          "\"paddingBlock\" has no field on this layer in Figma, skipped",
+          "\"borderRadius\" has no field on this layer in Figma, skipped"
+        ]
+      },
+      "box": {
+        "set": {
+          "fills": "button.selected.backgroundColor",
+          "paddingTop": "button.paddingBlock",
+          "paddingBottom": "button.paddingBlock",
+          "cornerRadius": "button.borderRadius"
+        },
+        "notes": [
+          "\"color\" has no field on this layer in Figma, skipped",
+          "\"font\" has no field on this layer in Figma, skipped"
+        ]
+      }
     }
   },
   "notes": [

@@ -4,7 +4,7 @@
 
 **Created**: 29 October 2026
 
-**Status**: Ready
+**Status**: Folded (29 October 2026)
 
 **Input**: An issue a sibling consumer opened against 0.1.11. In a component whose `pointer` axis stays in the path while a later axis, `availability`, folds, the member `pointer=hover, availability=disabled` binds `hover.backgroundColor` and pins `availability=disabled`. lib's `applies` picks `disabled.backgroundColor` for that combination, and the stylesheet draws it; the member draws the hover's fill, since the hover's variable has no `availability` mode.
 

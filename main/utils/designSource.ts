@@ -54,6 +54,31 @@ export function designSourceOf(resolver: Resolver): DesignSource {
     return built;
   };
 
+  const foldsFor = (unfold: readonly string[]): Folds => {
+    const key = unfold.join('\n');
+    let folds = foldsCache.get(key);
+    if (!folds) {
+      const { paths, tokens } = design();
+      foldsCache.set(key, (folds = foldsOf(tokens, paths, unfold)));
+    }
+    return folds;
+  };
+
+  /**
+   * The variable that carries a token the precedence picked: its twin, when its part on a folded axis is a cell of the
+   * twin's variable, so the member's pin on that axis selects it; the token itself otherwise. Exact, since no token
+   * carries two folded parts and a folded variable's rows pick as lib's precedence does (`folds.ts`).
+   */
+  const carrier = (path: string, folded: readonly string[]): string => {
+    if (folded.length === 0) return path;
+    const { tokens } = design();
+    const part = tokens.partsOf(path).parts.find((candidate) => folded.includes(candidate.axis));
+    if (!part) return path;
+    const cell = foldsFor(unfoldedFor(resolver)).parts.get(part.twin)?.get(part.axis)?.get(part.key) === path;
+    // A part of another type than its twin stays a variable of its own (`foldTokens`).
+    return cell && tokens.getToken(path)?.$type === tokens.getToken(part.twin)?.$type ? part.twin : path;
+  };
+
   return {
     // A component file takes the contexts Figma gets: the others have no mode to pin.
     contexts: (modifier) =>
@@ -66,15 +91,12 @@ export function designSourceOf(resolver: Resolver): DesignSource {
       return found && gets ? found.contexts.filter((context) => !gets.includes(context)) : undefined;
     },
     partsOf: (group, layoutParts) => {
-      const { paths, tokens } = design();
+      const { tokens } = design();
       if (tokens.getNodeKind(group) === 'missing') return undefined;
       // This file's own layout decides its component; the others keep what the files checked before it said.
       const stored = unfoldedFor(resolver).filter((name) => name !== group);
       const unfold = layoutParts ? [...stored, group] : stored;
-      const key = unfold.join('\n');
-      let folds = foldsCache.get(key);
-      if (!folds) foldsCache.set(key, (folds = foldsOf(tokens, paths, unfold)));
-      return folds.components.find((component) => component.group === group)?.axes ?? [];
+      return foldsFor(unfold).components.find((component) => component.group === group)?.axes ?? [];
     },
     children: (path) => {
       const { tokens } = design();
@@ -83,11 +105,13 @@ export function designSourceOf(resolver: Resolver): DesignSource {
       const names = tokens.childrenOf(path).map((child) => child.key);
       return names.length > 0 ? names : undefined;
     },
-    group: (path, selection = {}) => {
+    group: (path, selection = {}, folded = []) => {
       const { tokens, collection, resolution } = design();
       // The token each key is: in the group, or in a part group the member selects (`button.primary.backgroundColor`),
-      // as lib's `applies` rules: more parts wins, then the later axis; the document's key order never matters.
+      // as lib's `applies` rules: more parts wins, then the later axis; the document's key order never matters. A
+      // winner folded into its twin is bound through the twin, whose mode the member pins.
       const at = tokens.applies(path, selection);
+      for (const key of Object.keys(at)) at[key] = carrier(at[key], folded);
       const keys = Object.keys(at);
       const kind = tokens.getNodeKind(path);
       if (keys.length === 0) return kind === 'group' ? { keys } : kind === 'token' ? 'token' : undefined;

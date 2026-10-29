@@ -10,7 +10,7 @@
 
 import { referenceTarget } from '@toghen/lib';
 import type { OutNode } from 'kdlet';
-import { planKey, viaAxes } from './axes.js';
+import { foldedAxes, planKey, viaAxes } from './axes.js';
 import type { DesignSource, Expanded } from './axes.js';
 import { FIELDS } from './fields.js';
 import type { Component, GroupInfo, GroupPlan, Laid, Layer, Loc, Problem } from './model.js';
@@ -207,7 +207,12 @@ export interface SkippedPart {
  * own for the key, which only `tokens=` follows (`bindings.ts`). Asked of the group the token is in, under the
  * member's selection; the folded axes are not in a selection, so they are never said.
  */
-export function skippedParts(roots: OutNode[], source: DesignSource | undefined, selection: Record<string, string>): SkippedPart[] {
+export function skippedParts(
+  roots: OutNode[],
+  source: DesignSource | undefined,
+  selection: Record<string, string>,
+  folded: readonly string[],
+): SkippedPart[] {
   const skipped: SkippedPart[] = [];
   if (!source?.group || Object.keys(selection).length === 0) return skipped;
   const ask = source.group.bind(source);
@@ -219,7 +224,7 @@ export function skippedParts(roots: OutNode[], source: DesignSource | undefined,
     const group = path.slice(0, dot);
     if (!answers.has(group)) {
       try {
-        answers.set(group, ask(group, selection));
+        answers.set(group, ask(group, selection, folded));
       } catch {
         // A group the design system cannot answer for is said where the reference is checked.
         answers.set(group, undefined);
@@ -250,6 +255,7 @@ function lookup(
   loc: Loc | undefined,
   problems: Problem[],
   selection?: Record<string, string>,
+  folded?: readonly string[],
 ): GroupInfo | 'token' | undefined | 'failed' {
   const fail = (message: string): 'failed' => {
     problems.push({ severity: 'error', message, ...(loc ?? {}) });
@@ -260,7 +266,7 @@ function lookup(
       `tokens="{${path}}" takes its bindings from the tokens it names, and no design system is loaded; load its resolver document in the plugin, or pass it to the command line`,
     );
   try {
-    return source.group(path, selection);
+    return source.group(path, selection, folded);
   } catch (error) {
     return fail(`tokens="{${path}}": the design system could not be read: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -291,7 +297,7 @@ export function resolveGroups(
 ): Problem[] {
   const problems: Problem[] = [];
   for (const { path, loc, via } of used) {
-    const found = lookup(source, path, loc, problems, selection);
+    const found = lookup(source, path, loc, problems, selection, foldedAxes(component));
     if (found === 'failed') continue;
     const from = via ? ` (taken from ${via})` : '';
     if (found === undefined)
@@ -330,7 +336,7 @@ export function resolveComponentGroup(
   if (path === undefined || !source?.group) return problems;
   let found: GroupInfo | 'token' | undefined;
   try {
-    found = source.group(path, selection);
+    found = source.group(path, selection, foldedAxes(component));
   } catch {
     return problems; // said by resolveAxes
   }

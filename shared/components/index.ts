@@ -12,7 +12,7 @@
  */
 
 import type { Document } from 'kdlet';
-import { checkLeftOutModes, partGuardAxis, resolveAxes, selectionOf } from './axes.js';
+import { checkLeftOutModes, foldedAxes, partGuardAxis, resolveAxes, selectionOf } from './axes.js';
 import type { DesignSource } from './axes.js';
 import { checkPins, checkRoots } from './check.js';
 import { groupsUsed, resolveComponentGroup, resolveGroups, sayings, skippedParts } from './groups.js';
@@ -101,7 +101,7 @@ function withPartHint(problem: Problem, component: Component): Problem {
 function skippedPartWarnings(evaluated: Evaluated[], component: Component, source: DesignSource | undefined): Problem[] {
   const byReference = new Map<string, { path: string; loc: SkippedPart['loc']; members: string[] }>();
   for (const e of evaluated) {
-    for (const { path, chosen, loc } of skippedParts(e.roots, source, selectionOf(component, e.combination))) {
+    for (const { path, chosen, loc } of skippedParts(e.roots, source, selectionOf(component, e.combination), foldedAxes(component))) {
       const key = `${loc?.line}:${loc?.column}:${path}`;
       const entry = byReference.get(key) ?? { path, loc, members: [] };
       entry.members.push(`"${e.name}" selects {${chosen}}`);
