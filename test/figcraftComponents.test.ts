@@ -308,6 +308,11 @@ describe('component files into FigCraft, end to end', () => {
       assert.deepEqual([note.gridCell.row, note.gridCell.column, note.gridCell.alignH], [0, 1, 'center']);
       assert.equal(note.leadingTrim, 'capHeight');
       assert.equal(note.listSpacing, 6);
+      assert.deepEqual(
+        [note.textAlign, note.textAlignVertical, note.textCase, note.textDecoration],
+        ['right', 'bottom', 'upper', 'underline'],
+        'the alignments, the case and the decoration are written, so the second run below plans nothing',
+      );
       assert.equal(note.hidden!.fields!.paragraphSpacing, 4, 'written, though FigCraft does not report it');
       assert.equal(child('Row').layout.contentAlign, 'spaceBetween');
       assert.deepEqual(child('Row').dashes, [4, 2]);

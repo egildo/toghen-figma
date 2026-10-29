@@ -11,7 +11,7 @@ FRAME Panel width=(literal)300 height=(literal)200 cornerSmoothing=(literal)0.6 
         gridRowSizes {
             FLEX 1
         }
-        TEXT Note characters=(literal)"Hi" leadingTrim=CAP_HEIGHT listSpacing=(literal)6 paragraphSpacing=(literal)4 gridChildHorizontalAlign=CENTER {
+        TEXT Note characters=(literal)"Hi" leadingTrim=CAP_HEIGHT listSpacing=(literal)6 paragraphSpacing=(literal)4 gridChildHorizontalAlign=CENTER textAlignHorizontal=RIGHT textAlignVertical=BOTTOM textCase=UPPER textDecoration=UNDERLINE {
             grid row=0 column=1
         }
     }

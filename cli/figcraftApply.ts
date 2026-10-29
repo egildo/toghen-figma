@@ -351,6 +351,7 @@ function fieldCommands(batch: Batch, build: Build, ref: Ref, layer: Layer, root:
         else bind(name, build.resolved.variable(v.path).id);
       } else set({ [name]: plainOf(v) });
     }
+    for (const name of ['textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration']) if (has(name)) writePlain(name);
   }
 
   for (const name of ['width', 'height']) if (has(name) && value(name).kind !== 'token') writeDimension(name);
