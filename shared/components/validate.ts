@@ -15,6 +15,7 @@ import type { Condition, Operand } from 'kdlet-guards';
 import { FIELDS, GRID_CHILD_FIELDS, GRID_ONLY_FIELDS, NOT_IN_GRID_FIELDS, WRAP_FIELDS, isStructured } from './fields.js';
 import { memberName } from './members.js';
 import type { Component, FieldValue, Layer, Loc, Member, Problem, Property, Value } from './model.js';
+import { partGuardAxis, partKeys } from './axes.js';
 
 type Wirable = Property & { type: 'BOOLEAN' | 'TEXT' | 'INSTANCE_SWAP' };
 
@@ -329,22 +330,25 @@ function checkGuardWord(word: Condition, guard: string, axes: Axes, report: Repo
 }
 
 /** What the document says that the axes must agree with, and what a component file cannot use of the language. */
-function checkDocument(items: Item[], axes: Axes, report: Report, inDefinition = false): void {
+function checkDocument(items: Item[], component: Component, axes: Axes, report: Report, inDefinition = false): void {
   for (const item of items) {
     if (item.kind === 'each') {
       report.error('"each" is not built for component files: nothing supplies a list to repeat over', item.loc);
     } else if (item.kind === 'guard') {
-      if (item.body === undefined) {
+      // Toghen is the host of one kind of guard: a part key's, outside a definition, whose `(input)` would read a parameter.
+      if (item.body === undefined && (inDefinition || partGuardAxis(component, item.name) === undefined)) {
+        const keys = partKeys(component).map(([key]) => `"${key}"`);
         report.error(
-          `guard "${item.name}" has no body, which marks a guard the host supplies; a component file has no host to supply one`,
+          `guard "${item.name}" has no body, which marks a guard the host supplies; Toghen supplies one only for a part key, outside a define` +
+            (keys.length > 0 ? ` (here ${keys.join(', ')})` : ', and this component has none'),
           item.loc,
         );
-      } else if (!inDefinition) {
+      } else if (item.body !== undefined && !inDefinition) {
         // Inside a definition `(input)` reads a parameter, not an axis, so only the file's own guards are held to the axes.
         for (const word of item.body) checkGuardWord(word, item.name, axes, report);
       }
     }
-    if ('children' in item) checkDocument(item.children, axes, report, inDefinition || item.kind === 'define');
+    if ('children' in item) checkDocument(item.children, component, axes, report, inDefinition || item.kind === 'define');
   }
 }
 
@@ -373,7 +377,7 @@ export function validateComponent(component: Component, document: Document): Pro
     }
   }
 
-  checkDocument(document.nodes, axes, report);
+  checkDocument(document.nodes, component, axes, report);
 
   // `across=` names axes of the board; the axes are known only now, since some come from the design system.
   for (const name of component.across ?? []) {

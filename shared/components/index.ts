@@ -12,11 +12,13 @@
  */
 
 import type { Document } from 'kdlet';
-import { checkLeftOutModes, resolveAxes, selectionOf } from './axes.js';
+import { checkLeftOutModes, partGuardAxis, resolveAxes, selectionOf } from './axes.js';
 import type { DesignSource } from './axes.js';
 import { checkPins, checkRoots } from './check.js';
-import { groupsUsed, resolveComponentGroup, resolveGroups, sayings } from './groups.js';
+import { groupsUsed, resolveComponentGroup, resolveGroups, sayings, skippedParts } from './groups.js';
+import type { SkippedPart } from './groups.js';
 import { evaluateMembers, toMember } from './members.js';
+import type { Evaluated } from './members.js';
 import { isArtboardText, readArtboardFile } from './artboard.js';
 import { readFile } from './read.js';
 import { validateComponent, validateMember, validateMembers } from './validate.js';
@@ -78,6 +80,42 @@ function perMember(found: { member: string; problems: Problem[] }[]): Problem[] 
 }
 
 /**
+ * kdlet checks a guard's name when it reads the file, before the axes from the tokens are known, so its error cannot
+ * say that the name is a part key. This says it, and the line that declares the guard; it matches kdlet's wording,
+ * which its test pins.
+ */
+function withPartHint(problem: Problem, component: Component): Problem {
+  const name = /^no guard named "([^"]+)" is in scope here/.exec(problem.message)?.[1];
+  const axis = name === undefined ? undefined : partGuardAxis(component, name);
+  if (axis === undefined) return problem;
+  return {
+    ...problem,
+    message: `${problem.message}. "${name}" is a value of the axis "${axis}", taken from the parts of "${component.tokens}": declare it with guard ${name}, and Toghen supplies its body`,
+  };
+}
+
+/**
+ * One warning for each token a layer names outright that some members' selections would replace, naming each member
+ * and the token it skips. A warning, not an error: naming the rest is sometimes meant.
+ */
+function skippedPartWarnings(evaluated: Evaluated[], component: Component, source: DesignSource | undefined): Problem[] {
+  const byReference = new Map<string, { path: string; loc: SkippedPart['loc']; members: string[] }>();
+  for (const e of evaluated) {
+    for (const { path, chosen, loc } of skippedParts(e.roots, source, selectionOf(component, e.combination))) {
+      const key = `${loc?.line}:${loc?.column}:${path}`;
+      const entry = byReference.get(key) ?? { path, loc, members: [] };
+      entry.members.push(`"${e.name}" selects {${chosen}}`);
+      byReference.set(key, entry);
+    }
+  }
+  return [...byReference.values()].map(({ path, loc, members }) => ({
+    severity: 'warning',
+    message: `{${path}} names the rest's variable, which a member's parts replace: ${members.join('; ')}. Bind the group with tokens= to follow them, or keep the rest if that is meant`,
+    ...(loc ?? {}),
+  }));
+}
+
+/**
  * Reads, validates and expands one component file, in one pass.
  *
  * Every problem in the file is reported, not the first. The members are evaluated
@@ -99,7 +137,7 @@ export function readComponentFile(text: string, source?: DesignSource, inputs?: 
   const axes = resolveAxes(component, source, read.componentLoc);
   // The same goes for the token groups: what `tokens=` infers from is stored on the component, for the script and the plugin, which have no design system.
   const problems = [
-    ...read.problems,
+    ...read.problems.map((problem) => withPartHint(problem, component)),
     ...axes,
     ...(axes.length > 0 ? [] : [...validateComponent(component, document), ...resolveComponentGroup(component, source, read.componentLoc)]),
   ];
@@ -127,6 +165,7 @@ export function readComponentFile(text: string, source?: DesignSource, inputs?: 
     members = [];
     for (const f of found) if (f.member) members.push(f.member);
     if (members.length === evaluated.length) problems.push(...validateMembers(component, members));
+    problems.push(...skippedPartWarnings(evaluated, component, source));
     if (problems.some((problem) => problem.severity === 'error')) members = [];
     // What inference skipped or could not bind travels with the component: the run's report says it, and the engine has no design system to work it out from.
     if (said.notes.size > 0) component.notes = [...said.notes];

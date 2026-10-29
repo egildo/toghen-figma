@@ -194,6 +194,56 @@ export function groupsUsed(roots: OutNode[], combination: Record<string, string>
   return used;
 }
 
+/** A token a layer names outright, where the member's selection gives another for the same key: `{button.color}` for `button.disabled.color`. */
+export interface SkippedPart {
+  path: string;
+  chosen: string;
+  loc: Loc | undefined;
+}
+
+/**
+ * The tokens a member names outright that its selection would replace. A reference written on a layer names one
+ * variable: a folded axis reaches it through the variable's modes, but an axis left in the path has a variable of its
+ * own for the key, which only `tokens=` follows (`bindings.ts`). Asked of the group the token is in, under the
+ * member's selection; the folded axes are not in a selection, so they are never said.
+ */
+export function skippedParts(roots: OutNode[], source: DesignSource | undefined, selection: Record<string, string>): SkippedPart[] {
+  const skipped: SkippedPart[] = [];
+  if (!source?.group || Object.keys(selection).length === 0) return skipped;
+  const ask = source.group.bind(source);
+  const answers = new Map<string, GroupInfo | 'token' | undefined>();
+  const seen = (text: string, loc: Loc | undefined): void => {
+    const path = referenceTarget(text);
+    const dot = path === undefined ? -1 : path.lastIndexOf('.');
+    if (path === undefined || dot < 0) return;
+    const group = path.slice(0, dot);
+    if (!answers.has(group)) {
+      try {
+        answers.set(group, ask(group, selection));
+      } catch {
+        // A group the design system cannot answer for is said where the reference is checked.
+        answers.set(group, undefined);
+      }
+    }
+    const info = answers.get(group);
+    const chosen = typeof info === 'object' ? info.paths?.[path.slice(dot + 1)] : undefined;
+    if (chosen !== undefined && chosen !== path) skipped.push({ path, chosen, loc });
+  };
+  const values = (value: unknown, loc: Loc | undefined): void => {
+    if (typeof value === 'string') seen(value, loc);
+    else if (Array.isArray(value)) for (const item of value) values(item, loc);
+    else if (value !== null && typeof value === 'object') for (const item of Object.values(value)) values(item, loc);
+  };
+  const visit = (node: OutNode): void => {
+    if (node.kind === 'element') {
+      for (const [field, value] of Object.entries(node.fields)) if (field !== 'tokens') values(value, node.fieldLocs[field] ?? node.loc);
+    }
+    for (const child of node.children) visit(child);
+  };
+  for (const root of roots) visit(root);
+  return skipped;
+}
+
 function lookup(
   source: DesignSource | undefined,
   path: string,

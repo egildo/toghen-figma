@@ -4,7 +4,7 @@
 
 **Created**: 29 October 2026
 
-**Status**: Ready
+**Status**: Folded (29 October 2026)
 
 **Input**: Two issues a sibling consumer opened against 0.1.10, both found building component files against the FigCraft target.
 

@@ -233,6 +233,28 @@ export function selectionOf(component: Component, combination: Record<string, st
   return selection;
 }
 
+/**
+ * The part axis a guard with no body reads, when its name is a part key: a value, other than `rest`, of exactly one
+ * VARIANT axis, that axis taken from the parts. Toghen supplies such a guard's body, `is (input)<axis> <name>`; lib
+ * already refuses a key that is a value of two part axes, and a declared axis sharing the value makes it ambiguous.
+ */
+export function partGuardAxis(component: Component, name: string): string | undefined {
+  if (name === REST) return undefined;
+  const holders = component.properties.filter((property) => property.type === 'VARIANT' && property.values.includes(name));
+  const [only] = holders;
+  return holders.length === 1 && only.type === 'VARIANT' && only.part ? only.name : undefined;
+}
+
+/** The part keys of a component, each with its axis: the names a guard may be declared by alone. */
+export function partKeys(component: Component): [key: string, axis: string][] {
+  const keys: [string, string][] = [];
+  for (const property of component.properties) {
+    if (property.type !== 'VARIANT' || !property.part) continue;
+    for (const value of property.values) if (partGuardAxis(component, value) === property.name) keys.push([value, property.name]);
+  }
+  return keys;
+}
+
 /** The key a group's plan is stored under for a selection: `button|variant=primary`, or the group itself when the selection is empty. */
 export function planKey(group: string, selection: Record<string, string>): string {
   const keys = Object.keys(selection);

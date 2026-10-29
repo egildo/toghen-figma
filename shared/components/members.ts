@@ -14,8 +14,8 @@
 
 import { literalText, referenceTarget } from '@toghen/lib';
 import { defineVocabulary, evaluate } from 'kdlet';
-import type { Document, Json, OutNode, Structure } from 'kdlet';
-import { expandSegments, pinsOf, selectionOf } from './axes.js';
+import type { Document, GuardFn, Json, OutNode, Structure } from 'kdlet';
+import { expandSegments, partKeys, pinsOf, selectionOf } from './axes.js';
 import type { Expanded } from './axes.js';
 import { applyBindings } from './bindings.js';
 import { FIELDS, LAYER_KINDS, STRUCTURED_FIELDS } from './fields.js';
@@ -88,10 +88,15 @@ export interface Evaluated {
  * Evaluates the document once per combination, the axis values being its inputs. A reference that takes a path
  * segment from an axis (`{hue.(input)hue.soft}`) is expanded for the member, so that everything after sees an
  * ordinary one; kdlet leaves a string as it is written, and the segment is Toghen's.
+ *
+ * Toghen hosts the guards a file declares with no body by a part key's name: `guard selected` holds where the axis
+ * the key belongs to is `selected`. kdlet asks the host only for a guard declared without a body.
  */
 export function evaluateMembers(component: Component, document: Document): Evaluated[] {
+  const guards: Record<string, GuardFn> = {};
+  for (const [key, axis] of partKeys(component)) guards[key] = ({ inputs }) => inputs[axis] === key;
   return combinations(component).map((combination) => {
-    const { tree, problems } = evaluate(document, { vocabulary, inputs: combination });
+    const { tree, problems } = evaluate(document, { vocabulary, inputs: combination, guards });
     const expanded = expandSegments(tree, combination);
     return {
       name: Object.keys(combination).length > 0 ? memberName(combination) : component.name,
