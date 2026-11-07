@@ -279,7 +279,7 @@ const hexOf = ({ r, g, b, a = 1 }: { r: number; g: number; b: number; a?: number
 
 /**
  * A layer as `node.get` lists it among its parent's children: its fields, and how many children it has, not what they
- * are. `node.get` gives a layer's children one level down, whatever depth it is asked for (measured 23 October 2026).
+ * are. `node.get` gives a layer's children one level down, and takes no depth (measured against figcraft-cli 0.15.1).
  * What FigCraft does not report is left out. `above` is the layer's ancestors, nearest first.
  *
  * What a binding settles, measured against FigCraft 0.10.0 headless (24 October 2026): a solid paint bound to a colour
@@ -586,6 +586,8 @@ export async function startFakeFigcraft(
         return { ok: true };
       }
       case 'node.get': {
+        const unknown = Object.keys(params).find((key) => !['id', 'fields', 'outline'].includes(key));
+        if (unknown) throw new Error(`invalid parameters for \`node.get\`: unknown parameter \`${unknown}\` (it takes id, fields, outline)`);
         const page = f.pages.find((candidate) => candidate.id === params.id);
         if (page)
           return {

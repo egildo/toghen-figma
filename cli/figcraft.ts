@@ -433,7 +433,7 @@ async function readStamps(control: Control, pin: Pin): Promise<{ page?: number; 
     control,
     pin,
     'Read',
-    pages.map((page) => ({ command: 'node.get', params: { id: page.id, depth: 0 } })),
+    pages.map((page) => ({ command: 'node.get', params: { id: page.id } })),
   )) as Array<{ pluginData?: Record<string, string> }>;
   const index = held.findIndex((page) => page.pluginData?.[RECORD_KEY]);
   if (index < 0) return { record: new Map(), extras: readExtras(undefined) };
@@ -468,8 +468,8 @@ export function readShallow(on: boolean): void {
 
 /**
  * Every page of the pinned file with its layers, as `node.get` answers them. `node.get` lists a layer's children one
- * level down, whatever depth it is asked for (measured 23 October 2026), so the layers are read a level at a time, each
- * level in one request.
+ * level down and takes no depth (figcraft-cli 0.15.1 refuses one), so the layers are read a level at a time, each level
+ * in one request.
  */
 async function readPages(control: Control, pin: Pin, shallow = false): Promise<{ pages: FcNode[]; current?: number }> {
   const [list] = (await inFile(control, pin, 'Read', [{ command: 'page.list', params: {} }])) as [Page[]];
