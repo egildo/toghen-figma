@@ -100,9 +100,8 @@ class TgPopover extends TgElement {
     const report = token.report;
     const upstream = token.dot === 'upstream';
     const drifted = (report?.modes ?? []).filter((mode) => mode.agrees === false);
-    const title = upstream
-      ? 'Drift upstream'
-      : `Drifted in ${drifted.map((mode) => escHtml(mode.mode.split(' / ').pop())).join(', ') || 'Figma'}`;
+    // Words: the label takes them as they are, and the markup escapes them once.
+    const title = upstream ? 'Drift upstream' : `Drifted in ${drifted.map((mode) => mode.mode.split(' / ').pop()).join(', ') || 'Figma'}`;
 
     const isColor = (token.graph?.type ?? report?.type) === 'color';
     const cell = (value, tone = '') =>
@@ -136,7 +135,7 @@ class TgPopover extends TgElement {
     this.setAttribute('aria-label', `${title}: ${relative(token.path)}`);
 
     this.patch(
-      `<div class="pop-head">${dot(upstream ? 'upstream' : 'drifted')}<span class="strong">${title}</span>` +
+      `<div class="pop-head">${dot(upstream ? 'upstream' : 'drifted')}<span class="strong">${escHtml(title)}</span>` +
         `<span data-text="code" class="muted path">${escHtml(relative(token.path))}</span>` +
         `<button type="button" class="tg-button push" data-shape="icon" data-variant="quiet" data-size="xs" data-action="close" aria-label="Close">${icon('close', 'sm')}</button></div>` +
         table +
