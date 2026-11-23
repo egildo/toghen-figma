@@ -58,6 +58,8 @@ UI and main thread communicate via `figma.ui.postMessage()` / `figma.ui.onmessag
 
 See [reference.md](./reference.md#message-protocol) for the full protocol reference.
 
+The main thread handles one command at a time, in the order they came (`main/dispatcher.ts`). Run side by side, two executes of one plan applied it twice, and a plan made while an execute ran was cleared when the execute finished. Two commands run at once instead: `CANCEL_OPERATION`, which has to reach the run in progress, and `RESIZE_UI`, which reads and writes nothing in the file.
+
 ### Directory Structure
 
 ```
