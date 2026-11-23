@@ -367,10 +367,9 @@ class TgResults extends TgElement {
       setState({ status: 'running', errorMessage: null });
       send(command);
     });
-    this.on('click', '[data-action="cancel"]', () => {
-      send({ type: 'CANCEL_OPERATION', payload: {} });
-      setState({ status: 'idle' });
-    });
+    // The run stops at its next operation and reports what it did: until then it is still running, and nothing
+    // may be executed against it. OPERATION_COMPLETE, or an ERROR, ends it.
+    this.on('click', '[data-action="cancel"]', () => send({ type: 'CANCEL_OPERATION', payload: {} }));
   }
 
   update(state) {

@@ -141,3 +141,30 @@ describe("a collection's dot reads every state the Tokens pane reads, the same w
     assert.equal(collectionDot('adopted').dot, 'unread');
   });
 });
+
+describe('Cancel leaves the screen busy until the run says it is over', () => {
+  it('stays running, with Execute off, until OPERATION_COMPLETE', () => {
+    const surface = make('tg-results');
+    surface.setup();
+    const build = {
+      componentResult: { name: 'Badge', report: { dryRun: true, steps: [], notes: [], warnings: [], pending: [] } },
+      resultsExecute: { type: 'EXECUTE_BUILD', payload: { name: 'Badge' } },
+    };
+    state.setState({ ...loaded({ plan: planOf('variable_sync', 0) }), ...build, status: 'running' });
+    sent.length = 0;
+
+    fire(surface, 'click', '[data-action="cancel"]');
+    assert.deepEqual(
+      sent.map((command) => command.type),
+      ['CANCEL_OPERATION'],
+    );
+    assert.equal(state.getState().status, 'running');
+    assert.equal(results.resultView(state.getState()).footer.execute.disabled, true);
+    assert.match(draw('tg-pane-sync', state.getState()), /data-action="execute-variables" disabled/);
+
+    (globalThis as any).window.onmessage({
+      data: { pluginMessage: { type: 'OPERATION_COMPLETE', payload: { applied: 1, skipped: 0, failed: 0, cancelled: 3, results: [] } } },
+    });
+    assert.equal(state.getState().status, 'complete');
+  });
+});
