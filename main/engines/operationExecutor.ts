@@ -175,7 +175,13 @@ function bindPaintColor(node: SceneNode, property: 'fills[0].color' | 'strokes[0
     throw new Error(`Property ${property} requires first paint to be SOLID on node ${node.id}`);
   }
 
-  const bound = figma.variables.setBoundVariableForPaint(firstPaint, 'color', variable);
+  // Measured §8: a paint bound again on an existing node draws the colour it carries, so it is given the variable's.
+  let paint: SolidPaint = firstPaint;
+  if (variable) {
+    const { r, g, b } = variable.resolveForConsumer(node).value as RGBA;
+    paint = { ...firstPaint, color: { r, g, b } };
+  }
+  const bound = figma.variables.setBoundVariableForPaint(paint, 'color', variable);
   (node as unknown as Record<string, unknown>)[key] = [bound, ...paints.slice(1)] as Paint[];
 }
 

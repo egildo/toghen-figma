@@ -93,6 +93,26 @@ describe('operationExecutor — bindings', () => {
     assert.equal(mock.calls('getNodeByIdAsync').length, 1);
   });
 
+  // Measured §8: a paint bound again on an existing node draws the colour it carries, so it carries the variable's.
+  for (const key of ['fills', 'strokes'] as const) {
+    it(`gives the ${key} paint the variable's colour as it binds it`, async () => {
+      const mock = createFigmaMock()
+        .withCollection('Demo', ['light'])
+        .withVariable('Demo', 'color/accent', 'COLOR', { light: { r: 1, g: 0.4, b: 0, a: 1 } })
+        .install();
+      const frame = figma.createFrame();
+      frame[key] = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 0.5 }];
+      const variable = mock.variable('Demo', 'color/accent')!;
+
+      await executeOperation({ kind: 'BIND_VARIABLE', nodeId: frame.id, property: `${key}[0].color`, variableId: variable.id });
+
+      const paint = frame[key][0] as SolidPaint;
+      assert.deepEqual(paint.color, { r: 1, g: 0.4, b: 0 });
+      assert.equal(paint.opacity, 0.5);
+      assert.deepEqual(paint.boundVariables?.color, { type: 'VARIABLE_ALIAS', id: variable.id });
+    });
+  }
+
   it('refuses to bind a page', async () => {
     createFigmaMock().withPage('Page 1').install();
     const pageId = figma.root.children[0].id;
