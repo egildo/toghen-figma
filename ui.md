@@ -466,7 +466,9 @@ native. The fonts are spliced in as data URIs: Geist and Geist Mono from the
 `geist` package, and Phosphor's regular weight from `@phosphor-icons/web`.
 
 This package's `build.mjs` reads that file and puts it in the window's first
-`<style>`; `ui/styles.css` is the second. Nothing generated is committed. The
+`<style>`; `ui/styles.css` is the second. Both go through esbuild first, in
+every build, which drops their comments and whitespace and lowers nothing: its
+target is the Chromium of Figma's desktop app. Nothing generated is committed. The
 design system's `test/build.test.ts` reads the written CSS, since the build
 cannot see a value that resolves and serialises badly, and this package's
 `test/uiStyles.test.ts` reads the installed one.
@@ -487,7 +489,8 @@ token build. After the token build and the fonts it was 254.2 kB, of which
 The third font came with the design system's icons: Phosphor's regular weight,
 one file of 147.4 kB that carries the whole set, though the stylesheet writes a
 rule only for the icons the map names. Measured on 23 November 2026,
-`dist/ui.html` is 656.0 kB.
+`dist/ui.html` was 656.0 kB, and 632.2 kB once its two stylesheets lost their
+comments and whitespace.
 
 ---
 

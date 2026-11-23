@@ -1814,3 +1814,34 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 - `serve(0)` can collide on `::1`, which makes a test flaky.
 - The rulebook's "How it was met" for R11 and R16 describes the old behaviour.
 - The redacted consumer names are still in older commits' history.
+
+## Ruled and built: the injected stylesheets lose their whitespace (23 November 2026)
+
+**Status:** built; not released yet.
+
+**Where it comes from.** The ruling is on the second question of house's `.reference/plans/workspace/plan-2026-11-23-lightningcss.md`. Egildo answered it on 23 November 2026 with "2b": minify with esbuild, which figma already has. Lightning CSS was not added.
+
+**What was built.**
+
+- `build.mjs` passes the design system's stylesheet and `ui/styles.css` through `esbuild.transform`, with `loader: 'css'`, `minifyWhitespace: true` and `target: 'chrome152'`, before it injects them into `ui.html`.
+- It does this in every build, not only in production. The gate and the publish job build without `NODE_ENV`, so a minify done only in production would never ship.
+
+**What the build found:**
+
+- **esbuild 0.21.5's full `minify` does not keep the CSS as written.**
+  - It shortens numbers inside custom properties: `0.06em` becomes `.06em`.
+  - It drops an `&` before a combinator.
+  - It unquotes family names.
+  - Whitespace alone keeps all of these, for 47 bytes more, so whitespace alone was chosen.
+- **esbuild keeps an empty chain flag `--x: ;`,** under both options. That settles, for esbuild, postcss's open question on whether a minifier keeps the empty value.
+- **The CSS target.** The Figma desktop app on this machine was Electron 44.11.3, which is Chromium 152. esbuild lowers nothing at that target. Before and after, the counts of nesting, layers, `:is()`, `:where()`, `:has()`, rules and declarations agree, and so does every custom property.
+- **The screen is unchanged.** In the preview, every element's computed style and box was compared in both themes and across all ten fixture scenes: there were no differences.
+- **What it saves.**
+
+  | File | Before | After |
+  |---|---|---|
+  | `ui.html` | 656.0 kB | 632.2 kB |
+  | ui's sheet without its fonts | 94.2 kB | 80.8 kB |
+  | the plugin's own sheet | 26.6 kB | 17.7 kB |
+
+**Not done.** No test pins "nothing lowered". Add one when esbuild is next upgraded.
