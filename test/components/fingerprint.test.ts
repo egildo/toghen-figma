@@ -1,8 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { useFigmaMock } from '../support/figmaMock.js';
 import { fingerprintOf } from '../../main/components/fingerprint.js';
 import type { Resolved } from '../../main/components/resolve.js';
-import { desiredFromText } from './support.js';
+import { run } from '../../main/components/run.js';
+import { desiredFromText, desiredOf, shellMock } from './support.js';
 
 /** An artboard showing one instance of a component named by its published key. */
 const desired = desiredFromText(`artboard Sheet
@@ -31,5 +33,29 @@ describe('the fingerprint', () => {
     const before = await fingerprintOf(desired, resolvedTo({ id: '12:3', key: 'k1', remote: false }), undefined);
     const after = await fingerprintOf(desired, resolvedTo({ id: '12:4', key: 'k1', remote: false }), undefined);
     assert.notEqual(after, before);
+  });
+});
+
+describe('skipUnchanged, in Figma', () => {
+  useFigmaMock();
+
+  it('leaves a set unread while nothing it writes changed, and reads it again once a variable it binds holds another value', async () => {
+    const mock = shellMock().install();
+    const built = await run(desiredOf('shell'));
+    const writes = mock.writes().length;
+
+    for (const dryRun of [true, false]) {
+      const skipped = await run(desiredOf('shell'), { skipUnchanged: true, dryRun });
+      assert.equal(skipped.unchanged, true);
+      assert.equal(skipped.setId, built.setId);
+      assert.deepEqual(skipped.steps, []);
+    }
+    assert.equal(mock.writes().length, writes, 'a set left unread is not written to');
+
+    const space = mock.variable('Demo', 'space/md')!;
+    space.setValueForMode(Object.keys(space.valuesByMode)[0], 20);
+    const read = await run(desiredOf('shell'), { skipUnchanged: true, dryRun: true });
+    assert.equal(read.unchanged, undefined, 'a value a field binds is part of the fingerprint');
+    assert.ok(read.steps.length > 0);
   });
 });
