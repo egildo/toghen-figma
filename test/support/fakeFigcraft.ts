@@ -587,7 +587,8 @@ export async function startFakeFigcraft(
       }
       case 'node.get': {
         const unknown = Object.keys(params).find((key) => !['id', 'fields', 'outline'].includes(key));
-        if (unknown) throw new Error(`invalid parameters for \`node.get\`: unknown parameter \`${unknown}\` (it takes id, fields, outline)`);
+        if (unknown)
+          throw new Error(`invalid parameters for \`node.get\`: unknown parameter \`${unknown}\` (it takes id, fields, outline)`);
         const page = f.pages.find((candidate) => candidate.id === params.id);
         if (page)
           return {
