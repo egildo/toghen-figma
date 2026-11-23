@@ -26,8 +26,12 @@ const ancestorsOf = (path) => {
   return segments.map((_, index) => segments.slice(0, index + 1).join('.'));
 };
 
+/** What opened the popover, which takes focus back when it closes. */
+let opener = null;
+
 /** Opens the popover on a token, beside the element that asked. */
 export function openPopover(path, anchor) {
+  opener = anchor;
   const rect = anchor.getBoundingClientRect();
   const state = getState();
   setState({ popover: { path, x: rect.left, y: rect.bottom, panel: state.activePanel } });
@@ -38,13 +42,23 @@ export function openPopover(path, anchor) {
   }
 }
 
-const close = () => {
-  if (getState().popover) setState({ popover: null });
+/**
+ * Closes the popover. Closed by its own button or by Escape it gives focus back to what opened it, or to the dot a
+ * redraw put in that one's place; closed by a click elsewhere, focus is where the click put it.
+ */
+const close = (giveBack = false) => {
+  const open = getState().popover;
+  if (!open) return;
+  setState({ popover: null });
+  const back = opener?.isConnected ? opener : document.querySelector(`tg-dot[data-path="${CSS.escape(open.path)}"]`);
+  opener = null;
+  if (giveBack) back?.focus();
 };
 
 class TgPopover extends TgElement {
   setup() {
     this.setAttribute('role', 'dialog');
+    this.setAttribute('tabindex', '-1');
     document.addEventListener(
       'click',
       (event) => {
@@ -59,7 +73,7 @@ class TgPopover extends TgElement {
       true,
     );
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape') close(true);
       const asking = event.target?.closest?.('tg-dot[data-path]');
       if (asking && (event.key === 'Enter' || event.key === ' ')) {
         event.preventDefault();
@@ -67,7 +81,7 @@ class TgPopover extends TgElement {
       }
     });
 
-    this.on('click', '[data-action="close"]', close);
+    this.on('click', '[data-action="close"]', () => close(true));
     this.on('click', '[data-action="open-in-tokens"]', () => {
       const path = getState().popover.path;
       setState({ popover: null, activePanel: 'tokens', tokensTrail: ancestorsOf(path), inspectOpenPath: path });
@@ -75,7 +89,7 @@ class TgPopover extends TgElement {
     });
     this.on('click', '[data-action="select-layers"]', (button) => {
       send({ type: 'SELECT_NODES', payload: { ids: JSON.parse(button.dataset.ids) } });
-      close();
+      close(true);
     });
   }
 
@@ -85,6 +99,8 @@ class TgPopover extends TgElement {
     if (popover && popover.panel !== state.activePanel) {
       queueMicrotask(close);
     }
+    const opening = popover && popover !== this.shown;
+    this.shown = popover;
     this.hidden = !popover;
     if (!popover) {
       this.patch('');
@@ -143,6 +159,8 @@ class TgPopover extends TgElement {
         `<div class="actions"><button type="button" class="tg-button" data-size="sm" data-action="open-in-tokens">Open in Tokens</button>${select}` +
         `<button type="button" class="tg-button" data-size="sm" disabled title="Needs a pin: the stamp holds hashes, not the values to put back">Put the document's value back</button></div>`,
     );
+    // It takes focus as it opens, so the keys reach its actions and Escape.
+    if (opening) this.focus();
   }
 }
 

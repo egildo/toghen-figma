@@ -168,3 +168,26 @@ describe('Cancel leaves the screen busy until the run says it is over', () => {
     assert.equal(state.getState().status, 'complete');
   });
 });
+
+describe('the popover takes focus when it opens and gives it back when it closes', () => {
+  it('to the dot that opened it', async () => {
+    const { openPopover } = await screen('components/popover.js');
+    const popover = make('tg-popover');
+    popover.setup();
+    const anchor = {
+      isConnected: true,
+      focused: false,
+      focus: () => (anchor.focused = true),
+      getBoundingClientRect: () => ({ left: 0, bottom: 0 }),
+    };
+    state.setState({ ...loaded({ inspection: lookedAt('10:00', 1) }), activePanel: 'tokens', boundLayers: {} });
+    openPopover('ds.color.c0', anchor);
+    popover.update(state.getState());
+    assert.equal(popover.focused, true);
+    assert.equal(popover.getAttribute('tabindex'), '-1');
+
+    fire(popover, 'click', '[data-action="close"]');
+    assert.equal(state.getState().popover, null);
+    assert.equal(anchor.focused, true);
+  });
+});

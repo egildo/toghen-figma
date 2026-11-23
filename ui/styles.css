@@ -42,6 +42,7 @@ p {
 .spine:focus-visible,
 tg-results .bar .toggle:focus-visible,
 tg-results .splitter:focus-visible,
+tg-popover:focus-visible,
 tg-dot[tabindex]:focus-visible {
   outline: var(--tg-bw-2) solid var(--tg-accent-bg);
   outline-offset: var(--tg-off-out);
