@@ -539,8 +539,9 @@ export type Command =
       };
     }
   /**
-   * The end of a run, once, after its last component or artboard step: removes the strays when `allowBreaking`, and stacks
-   * Toghen's sets and artboards again on each page the run changed one on. With `dryRun` it only says what it would restack.
+   * The end of a run, once, after its last component or artboard step: with `allowBreaking`, removes the strays and, when
+   * the check had `prune`, the sets and artboards no file declares; then stacks Toghen's sets and artboards again on each
+   * page the run created or changed one on. With `dryRun` it only says what it would restack.
    */
   | { type: 'FINISH_COMPONENTS'; payload: { dryRun?: boolean; allowBreaking?: boolean } }
   | { type: 'CANCEL_OPERATION'; payload: Record<string, never> }

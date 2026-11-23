@@ -61,7 +61,7 @@ The main thread handles requests one at a time, in the order they came; `CANCEL_
 | `LIBRARY_KEYS` | — | In a library file: its own keys and publish status (see [*The lock*](#the-lock), *From the library file*). Answered by `LIBRARY_KEYS_READ`. The command line sends it; the screen does not |
 | `LOCK_WRITE` | `{ library: string; entry: LockedLibrary }` | In a target file: write `entry` as `library`'s, replacing that library's entry whole. Answered by `LOCK`, or `ERROR` with `INVALID_PICK` for an empty name or an entry not in `LockedLibrary`'s shape. The command line sends it |
 | `GET_SELECTION` | — | Request current selection info |
-| `RUN_COMPONENT` | `{ text, fileName, options }` | Make Figma agree with one component file: the plugin reads the text, evaluates and checks it against the loaded design system, then runs the engine with the `RunOptions`. The same entry a kept template's build uses (`main/components/file.ts`, `runComponentFile`). A problem is reported as `<fileName>:<line>:<column> <message>`. Sent by the command line |
+| `RUN_COMPONENT` | `{ text, fileName, options, inputs? }` | Make Figma agree with one component file: the plugin reads the text, evaluates and checks it against the loaded design system, then runs the engine with the `RunOptions`. `inputs` is what an artboard file reads with `(input)`: the tokens of the document the command line resolved, nested by path, each leaf its resolved `$value`; a component file ignores it. The same entry a kept template's build uses (`main/components/file.ts`, `runComponentFile`). A problem is reported as `<fileName>:<line>:<column> <message>`. Sent by the command line |
 | `CHECK_COMPONENTS` | `{ files: { fileName, text }[], names?, inputs?, dryRun?, allowBreaking?, prune? }` | Read and check every file, writing nothing. With `names`, also check that every token and style a file names is in the loaded design system. `inputs` are the values an artboard file takes. The payload has no layout of its own: the plugin reads each file's `layout` from its text, and remembers the token groups of the files with `layout=parts` for the loaded document (each check replaces the list), so the variable sync that follows keeps those components' axes in the path. A sync that did not check the files first lays every component out folded. It also reads the stamped set of each file that checked clean, and a set Figma reports as broken is a problem, with the lines a run would stop with. It finds the strays, members outside any set, on every page: one breaking line each, a problem unless `dryRun` or `allowBreaking`, else carried in `COMPONENTS_CHECKED.strays`. With `prune` the files are the whole system: each set and artboard frame Toghen made, not a copy, that none of them declares is listed the same way, in `COMPONENTS_CHECKED.orphans`, and the end of the run removes it. Answered by `COMPONENTS_CHECKED`, or `ERROR` with every problem. Sent by the command line before it syncs anything |
 | `FINISH_COMPONENTS` | `{ dryRun?, allowBreaking? }` | The end of a run, once, after its last component or artboard step: removes the strays when `allowBreaking`, and, when the check had `prune`, the sets and artboards no file declares, then restacks Toghen's sets and artboards on each page the run created or changed one on (`main/components/endOfRun.ts`, the rules in `shared/components/stack.ts`). With `dryRun` it only says, per page, which sets it would restack and which were moved by hand. Answered by `COMPONENTS_FINISHED`. Sent by the command line, and by a template build from the screen |
 | `CANCEL_OPERATION` | — | Abort the active operation; the plan is kept, so re-planning is the resume |
@@ -93,6 +93,7 @@ The main thread handles requests one at a time, in the order they came; `CANCEL_
 | `LIBRARY_KEYS_READ` | `LibraryKeys` | What a library file says of its own keys. Answers `LIBRARY_KEYS` |
 | `SELECTION_CHANGED` | `{ ids, names, count }` | Selection changed, or answered by `GET_SELECTION` |
 | `COMPONENTS_FINISHED` | `{ removed: string[], moved: string[], notes: string[] }` | Answer to `FINISH_COMPONENTS`: the strays removed (`removed "x" (id)`, and `; its copy "x" (id) keeps no stamp` where a person had copied one), the sets and artboards with no source removed (`removed the set "Gone" (12:3) from page "Old"`), the sets moved (`moved "Dot" to 0, 7381`), and notes (a set moved by hand that overlaps something, a dry run's restack lines, or `page "Old" holds nothing now; it is left as it is`) |
+| `COMPONENTS_CHECKED` | `{ files: number, strays?: string[], orphans?: string[] }` | Answer to `CHECK_COMPONENTS` when no file has a problem; otherwise it is an `ERROR` with `problems`. `files` is how many were checked. `strays`, the members outside any set, one breaking line each, and `orphans`, the sets and artboards no file declares (with `prune` only), are present when there are some; unless the check was for a dry run or `allowBreaking`, they are `problems` instead |
 | `COMPONENT_RUN` | `{ component: string, report: CompactReport }` | Answer to `RUN_COMPONENT`: the engine's `Report` with each step summarised (`CompactReport`, described under *The engine, stored in the file*). A run the engine stopped arrives as `ERROR` with `problems` |
 | `ERROR` | `{ message, code, commandType, problems? }` | Any command that could not complete. `problems` is present for `code: 'COMPONENT_RUN_FAILED'`: every reason the engine stopped, one per entry, with the headline in `message` |
 
@@ -114,15 +115,16 @@ interface DocumentStatePayload {
   modes: string[];              // the sum's modes: the defaults, then each other context on its own; never every combination
   modifierDefaults: Record<string, string>;   // modifier name → its default context; the export's controls start there
   defaultMode: string;          // the mode with no context chosen: the first of `modes`
+  // version?, fileName?, composition?, styleCount, collections?: see *Document state and sync state are different questions*, below
 }
 
-interface PlanPayload { planType: 'variable_sync' | 'style_sync' | 'scaffold' | 'apply_bindings' | 'load' | 'discovery' | 'apply' | 'relink'; operations: Operation[]; summary?: Record<string, number> }
+interface PlanPayload { planType: 'variable_sync' | 'style_sync' | 'scaffold' | 'apply_bindings' | 'load' | 'discovery' | 'apply' | 'relink'; operations: Operation[]; summary?: PlanCounts }  // PlanCounts: see *Plan-only operations*
 
 /** One shape, used twice: files in Load, Figma objects in Build. A name as written → what to use instead. */
 type Overrides = Record<string, string>;
 interface ProgressPayload { completed: number; total: number; currentLabel: string }
 interface SelectionPayload { ids: string[]; names: string[]; count: number }
-interface FigmaCollectionPayload { id: string; name: string; modes: Array<{ modeId: string; name: string }> }
+interface FigmaCollectionPayload { id: string; name: string; modes: Array<{ modeId: string; name: string }>; variableCount: number }  // how many local variables it holds
 
 type CorrespondenceState = 'current' | 'drifted' | 'outdated' | 'absent' | 'adopted' | 'blocked' | 'not_inspected';
 interface ModeReport { mode: string; present: boolean; documentValue: string | null; figmaValue: string | null; agrees: boolean | null }
@@ -136,8 +138,8 @@ interface InspectionPayload { checkedAt: string; collectionName: string; tokens:
 
 `DocumentStatePayload` describes the **JSON that was loaded**: its name,
 description, token count, modifiers, mode names, and the mode it resolves to
-with no context chosen. Three more fields let the Sync pane say what the
-document would build in Figma without asking Figma anything:
+with no context chosen. Five more fields say where it came from and let the Sync
+pane say what the document would build in Figma without asking Figma anything:
 
 ```typescript
 interface DocumentStatePayload {
@@ -1303,6 +1305,7 @@ interface RunOptions {
   overwriteDrift?: boolean; // write the file's value over a field edited by hand since Toghen wrote it; without it the edit is kept and noted
   pending?: Pending;       // names a dry run counts as present because an earlier step would create them; a real run refuses it
   libraries?: string[];    // the libraries the file declares (a blueprint's `library` lines), whose names resolve through the lock; see *The lock*
+  skipUnchanged?: boolean; // leave unread a set or an artboard whose stamp holds the fingerprint of what this run would write; see specs, *Skipping what has not changed*
 }
 
 interface Pending {
@@ -1310,9 +1313,12 @@ interface Pending {
   textStyles: string[];                                                               // by style name
   effectStyles?: string[];                                                            // by style name
   modes?: { collection: string; mode: string }[];                                     // modes a plan would create, by collection name
+  removed?: { collection: string; name: string }[];                                   // variables a plan would remove because their token moved to another collection: counted as gone
+  components?: string[];                                                              // sets a file earlier in the same dry run would create, by name: counted as present, their instances' properties and slots unchecked
 }
 
 interface Report {
+  artboard?: true;    // an artboard's run: `created`, `updated` and `deleted` then name layers, by address, not members
   dryRun: boolean;
   steps: Step[];      // planned, and for a real run applied
   setId?: string;     // the set built or patched; absent for a dry run
