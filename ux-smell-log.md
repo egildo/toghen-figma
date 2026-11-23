@@ -5,9 +5,9 @@
 > Status: open · real problem · fixed · fine as-is.
 
 _Project:_ `@toghen/figma`
-_Last updated:_ 2026-10-24
+_Last updated:_ 2026-11-23
 
-Status, read today: a row marked *fixed* was found as a real problem and has since been met, by the fix its note names or by the rule it became; rows 8, 41, 42, 45, 48, 49, 50 and 51 are still *open*.
+Status, read today: a row marked *fixed* was found as a real problem and has since been met, by the fix its note names or by the rule it became; rows 41, 42, 45, 48, 49 and 50 are still *open*.
 
 First walk: 2026-08-12, over the two-panel layout as it stood after drift
 detection shipped.
@@ -21,7 +21,7 @@ detection shipped.
 | 5 | Activity | `max-height: 200px` with its own scrollbar, inside a `main` that also scrolls: two nested scroll regions | strong | fixed | Rows become unreachable |
 | 6 | Activity | Never says *which* plan it shows. `planType` exists and is used only to enable a button (`render.js:87`) | medium-strong | fixed | The user infers it from which button lit up, two sections away |
 | 7 | Activity | Holds the **Dry run** toggle, which modifies Execute two sections up: a control inside a region that otherwise only reports | medium | fixed | Introduced by me, two rounds before this walk. Resolved by deletion: put beside Plan/Execute it was visibly a third "look without doing", so the toggle went and its one real check moved into planning |
-| 8 | Activity | `…and N more` truncates at 80 with no way to reach the rest | faint | open | |
+| 8 | Activity | `…and N more` truncates at 80 with no way to reach the rest | faint | fixed | The result surface draws 200 rows, then `…and n more` is a button that shows the rest. Marked on 23 November 2026, from a review |
 | 9 | Map panel | The reporting apparatus is duplicated per tab, and the copy lost `progress-wrap` and `result-summary`, which exist only in the Sync panel | strong | fixed | **A defect, not a preference:** Execute Scaffold shows no progress and no result at all |
 | 10 | Export | Lives in Map; the document loads in Sync. The round trip crosses a tab boundary with nothing structural putting it there | medium | fixed | |
 | 11 | Whole window | Fixed 400×600 with no way to resize | medium | fixed | Self-imposed: `showUI` names no maximum |

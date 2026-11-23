@@ -20,9 +20,10 @@
 3. **Plan → Execute pairs.** Every operation is *Plan* (shows what would happen,
    touching nothing) then *Execute* (applies it), side by side. There is no
    separate dry run: Plan already is one.
-4. **Self-contained.** One `dist/ui.html`: the script bundled by esbuild, one
-   stylesheet, the two fonts inside it. The manifest gives the window no
-   network, so nothing may be fetched.
+4. **Self-contained.** One `dist/ui.html`: the script bundled by esbuild, and
+   two `<style>`s, the design system's and then the plugin's own, with the three
+   fonts (Geist, Geist Mono and Phosphor's icons) inside the first. The manifest
+   gives the window no network, so nothing may be fetched.
 5. **The palette is the plugin's own.** The screen's colours, sizes and type
    come from the plugin's own Toghen token document, not from Figma's
    `--figma-color-*` variables. Light and dark are the two contexts of a
@@ -43,7 +44,7 @@
 │ main        the pane in front            ← scrolls
 ├──────────────────────────────────────┤
 │ ═══════════ splitter ═══════════
-│ results     bar · counts · rows · footer ← drag to resize, click the bar to collapse
+│ results     bar · counts · rows · footer ← drag the splitter or press Up and Down on it; the bar's toggle collapses
 ├──────────────────────────────────────┤
 │ status bar  busy / error …  command line · window switch
 └──────────────────────────────────────┘    ◢ window grip
@@ -60,8 +61,11 @@ it, rendered once (R2). Its label is permanently "Results"; what produced the
 contents is said beside it, with the time (`build plan · Stepper · 10:02`),
 and `from the command line` when the command line asked (R6). Its height is
 relative to the window, `44vh` and `62vh` once there are rows; dragging the
-splitter writes `--results-height` inline, which beats both, so a size someone
-chose is never overridden by a later result.
+splitter, or Up and Down on it, writes `--results-height` inline, which beats
+both, so a size someone chose is never overridden by a later result. The
+splitter is a separator the keyboard reaches, and says how much of the window
+the surface takes. The bar's toggle is a button holding the chevron, the name
+and the source; the count chips sit beside it, not inside it.
 
 **The status bar is the plugin's own condition**, one line: on the left the
 busy dot and the word (`idle`, `running`, `error`) with any error; on the
@@ -173,8 +177,11 @@ down:
   it load, the description, and counters for tokens, modifiers and modes,
   styles and kept templates.
 - **In this Figma file:** the sync line, `Written by a sync · 43 of 45
-  recorded`, and a drift note borrowed from whichever looked last, the plan or
-  the Tokens pane, and named (R11). Below it one row per collection the document
+  recorded`, and a drift note borrowed from the checks that looked, each named
+  (R11): a variable plan and the Tokens pane compare the variables, so of those
+  two the more recent answers; a style plan compares the styles, so it answers
+  beside them, and the one that found drift wins. A style plan alone that found
+  none says `no drift in styles`. Below it one row per collection the document
   would build: the base collection first, then one per modifier, then one per
   folded part axis, named after the axis (see
   [Parts](./specs.md#parts-axes-from-subgroups-folded-into-modes-or-one-variable-each)).
@@ -183,7 +190,8 @@ down:
   nothing more. Each row sits beside what Figma holds of it by name: the modes,
   the variable count (`22 / 23` where Figma has fewer, `0 / 4` and *not in
   Figma* where it has none), and the worst dot of its tokens from the last look,
-  or the grey ring when nothing has looked (R16). A last row counts the style
+  each the dot the Tokens pane draws for it, so an adopted or uninspected token
+  counts as not looked at; or the grey ring when nothing has looked (R16). A last row counts the style
   tokens, grey, since nothing compares styles yet. The label row says when the
   collections were read.
 - **Sync:** Variables and Styles, Plan and Execute each; Export with one
@@ -390,7 +398,9 @@ The footer says what a command left to say: `7 applied · 1 skipped · 0 failed`
 after a run, with the failed operations as rows. `skipped` counts the plan's
 skips, the operations whose prerequisite failed and the cancelled ones; the
 plan's warnings and notes keep the counts its chips gave them (R14); the progress and **Cancel**
-while one runs; and for a build plan the Build pane asked for, its
+while one runs, where Cancel only asks: the run stops at its next operation, and
+the screen stays busy, with every Execute off, until the run reports what it
+did; and for a build plan the Build pane asked for, its
 **Execute**, held while a breaking step is not allowed. A variable plan lists a
 breaking step as a row and offers no such checkbox: the screen's Execute never
 deletes a mode (see the guide, *A context removed from the document*).
@@ -403,8 +413,9 @@ it: in which modes Figma differs, the table of modes with swatches, why that is
 drift rather than a change in the document (or, upstream, which token it points
 to does not agree), and three actions at most: **Open in Tokens**, **Select the
 n layers** (bound on this page), and *Put the document's value back*, disabled
-until the pin model exists. It closes on Escape, on a click outside, and when
-the pane in front changes.
+until the pin model exists. It takes focus as it opens. It closes on Escape, on
+a click outside, and when the pane in front changes; closed by Escape or its own
+button, it gives focus back to the dot that opened it.
 
 ---
 
@@ -421,7 +432,7 @@ values here would be a copy of a file a folder away, and the copy loses.
 | `text` | `--tg-text-1`, `-2`, `-3`, `-on-accent` | names and values; labels; times, counts and the disabled |
 | `accent` | `--tg-accent-bg`, `--tg-accent-text` | the active tab and the one primary button; links |
 | `status` | `--tg-status-ok`, `-warn-dot/-text/-bg`, `-err-dot/-text/-bg`, `-info-bg` | each tone in three: the mark, its words, its ground. Green is never an all-clear |
-| `swatch`, `shadow` | `--tg-swatch-edge`, `--tg-shadow-pop` | a swatch's edge in either theme; the popover's lift |
+| `swatch`, `shadow` | `--tg-swatch-semantic-edge`, `--tg-shadow-pop` | a swatch's edge in either theme; the popover's lift |
 | `font`, `fs`, `lh` | `--tg-font-ui`, `--tg-font-code`, `--tg-fs-1…5`, `--tg-lh-normal`, `--tg-lh-tight` | Geist for words, Geist Mono for every path, value and name |
 | `sp`, `h`, `w`, `r` | `--tg-sp-1…6`, `--tg-h-*`, `--tg-w-spine`, `--tg-w-kind`, `--tg-r-1…3` | spacing on a base of 4; the heights of tabs, rows, controls and bars; the spine and the kind column; radii for chips, controls, cards |
 
@@ -451,12 +462,14 @@ with lib's `load`, resolves every context with `resolveContextsToDesignSystem()`
 and inlines the layer imports of `src/index.css`. Then one PostCSS pipeline: Toghen
 writes the token layer and the mixins (`onUnresolved: 'throw'`, so a broken reference
 fails the build), and the mixins polyfill, listed after it, expands each `@apply`. Nesting stays
-native. The fonts are spliced in as data URIs from the `geist` package.
+native. The fonts are spliced in as data URIs: Geist and Geist Mono from the
+`geist` package, and Phosphor's regular weight from `@phosphor-icons/web`.
 
-This package's `build.mjs` reads that file and puts it in the window's one
-`<style>`, before `ui/styles.css`. Nothing generated is committed.
-`toghen-ui/test/build.test.ts` reads the written CSS, since the build cannot see a
-value that resolves and serialises badly.
+This package's `build.mjs` reads that file and puts it in the window's first
+`<style>`; `ui/styles.css` is the second. Nothing generated is committed. The
+design system's `test/build.test.ts` reads the written CSS, since the build
+cannot see a value that resolves and serialises badly, and this package's
+`test/uiStyles.test.ts` reads the installed one.
 
 ### What the fonts cost
 
@@ -471,13 +484,18 @@ token build. After the token build and the fonts it was 254.2 kB, of which
 155.5 kB is the two fonts as base64. With the four panes and the window switch built it is 314.4 kB,
 158.9 kB without the fonts. `code.js` embeds the page, so it grows by the same.
 
+The third font came with the design system's icons: Phosphor's regular weight,
+one file of 147.4 kB that carries the whole set, though the stylesheet writes a
+rule only for the icons the map names. Measured on 23 November 2026,
+`dist/ui.html` is 656.0 kB.
+
 ---
 
 ## Vocabularies
 
 ### Dots
 
-Six, and silence. 6px, filled or a 1.5px ring; `<tg-dot state="…">`.
+Eight, and silence. 6px, filled or a 1.5px ring; `<tg-dot data-state="…">`, the design system's.
 
 | state | looks | means |
 |---|---|---|
@@ -488,6 +506,8 @@ Six, and silence. 6px, filled or a 1.5px ring; `<tg-dot state="…">`.
 | `unread` | grey ring | nothing has looked |
 | `connected` | green, filled | the command line is paired (status bar and Source card only) |
 | `busy` | accent, filled | something is running or being read |
+| `idle` | grey, filled | nothing is running (the status bar only) |
+| `error` | red, filled | the last command failed (the status bar only) |
 
 A group's or a collection's dot is the worst of what it holds, drift first:
 a drifted value is someone's edit a sync would not take, an absent one is work
@@ -496,34 +516,36 @@ popover.
 
 ### Glyphs
 
-One shape per kind of thing, 16-unit viewBox, 1.5 stroke, `currentColor`, in
-`ui/glyphs.js`: `token`, `variable`, `collection` (also the design system),
-`mode`, `style`, `group`, `set`, `layer`, `template` (also "declared by the
-file"), `sheet`, `command-line`, `conventions`, `look-again`, `search`, `info`,
-`warning`, `engine`. A counter is a glyph and a number. What a control does
-(chevrons, close, upload, export, add, the window switch) is an action icon, in
-`ui/icons.js`.
+One Phosphor icon per kind of thing, from the design system's icon map
+(`@toghen/ui/icons.js`, its `GLYPHS`): `token`, `variable`, `collection` (also
+the design system), `mode`, `style`, `group`, `set`, `layer`, `template` (also
+"declared by the file"), `sheet`, `command-line`, `conventions`, `look-again`,
+`search`, `info`, `warning`, `engine`. A counter is a glyph and a number. What a
+control does (chevrons, close, upload, export, add, the window switch) is an
+action icon, the map's `ACTIONS`. The screen draws either by its name with
+`icon()` from `ui/markup.js`.
 
 ---
 
 ## Components
 
-Light-DOM custom elements, no shadow root, no framework, no runtime dependency.
-Leaves take attributes; containers take the whole state through a `state`
-setter and draw from template strings (`escHtml`, `escAttr`). A container
-replaces its markup only when the string changed, and carries across what a
-person typed, ticked and where the caret was, by id (`TgElement.patch`); an
-input whose value the state owns says so with `data-controlled`. Listeners are
-delegated, because rows are replaced on every change that matters.
+Light-DOM custom elements, no shadow root, no framework. The leaves are the
+design system's (`@toghen/ui/elements.js`, imported once in `ui/main.js`):
+`tg-dot`, `tg-chip`, `tg-segmented`, `tg-tabs`, `tg-callout`, `tg-card`,
+`tg-row` and `tg-list`, written through the helpers of `ui/markup.js`; they
+take attributes. The containers are the screen's own: they take the whole
+state through a `state` setter and draw from template strings (`escHtml` for
+text, `escAttr` for an attribute). A container replaces its markup only when the
+string changed, and carries across what a person typed, ticked and where the
+caret was, by id, and which control had focus, by what names it
+(`TgElement.patch`); an input whose value the state owns says so with
+`data-controlled`. Listeners are delegated, because rows are replaced on every
+change that matters.
 
 | Element or helper | File | What it draws |
 |---|---|---|
-| `tg-dot` | `components/leaves.js` | a dot, labelled for a screen reader |
-| `tg-glyph` | `components/leaves.js` | a glyph by name |
-| `tg-chip`, `chip()` | `components/leaves.js` | a counter, 20px or 18px, `plain`, `warn`, `err`, `ok`; `mono` for the result surface's filters |
-| `tg-callout`, `callout()` | `components/leaves.js` | icon, title, one line, one action; `small` inside a row's detail |
-| `tg-card`, `card()` | `components/leaves.js` | a card on the grey ground under a label, with an optional time |
-| `tg-tabs` | `components/tabs.js` | the strip |
+| `icon()`, `dot()`, `chip()`, `callout()`, `row()`, `card()` | `markup.js` | the design system's icon, dot, counter chip (`data-tone`, `data-size`, `data-variant="code"` for the result surface's filters), callout (`data-size="sm"` inside a row's detail), row of a card, and card under a label with an optional time |
+| `drawTabs()`, `initTabs()` | `components/tabs.js` | the tabs of the design system's `tg-tabs` strip, kept true to the state |
 | `tg-pane-load`, `-sync`, `-tokens`, `-apply`, `-build` | `components/pane-*.js` | the panes |
 | `overridesTable()` | `components/overrides-table.js` | an overrides map as used: a name as written beside what was used instead, and the keys that matched nothing; Load's files, and Build's Figma objects with a Remove per row (`removable`) |
 | `tg-results` | `components/results.js` | the result surface; `resultView(state)` is what it shows |
@@ -586,9 +608,11 @@ drawn as such.
 
 ## The preview page
 
-`ui/dev/preview.html`, served by `scripts/preview.mjs` (`pnpm --filter
-@toghen/figma preview`, after a build), is how the screen is checked; there is
-no test runner for the UI. It holds the built `dist/ui.html` in an iframe, a
+`ui/dev/preview.html`, served by `scripts/preview.mjs` (`pnpm preview`, after
+a build), is how the screen's look is checked. Its pure parts, what each
+element draws from a state, what the result surface shows (`resultView`) and
+where the drift note comes from (`driftKnownFrom`), are tested in Node under a
+small page shim (`test/screen.test.ts`, `test/support/screen.ts`). The preview holds the built `dist/ui.html` in an iframe, a
 theme switch that sets `figma-light` or `figma-dark` on the iframe's `<html>`
 as Figma does, the two window sizes and the 320px minimum, and fixture buttons that post messages
 shaped as `shared/protocol.ts` says: nothing loaded, a synthetic design system
@@ -613,13 +637,12 @@ from a script. Nothing of it ships.
 | File | Role |
 |---|---|
 | `ui/ui.html` | The shell's elements, with `INJECT_CSS` / `INJECT_JS` placeholders |
-| `ui/tokens.css` | The `@toghen contexts` directive and the `@font-face` rules |
-| `ui/styles.css` | Every rule, reading only `--tg-*` properties |
+| `ui/styles.css` | The application's rules, after the design system's sheet, reading only `--tg-*` properties |
 | `ui/main.js` | Entry: answers from the main thread → state, and the first requests |
 | `ui/state.js` | The store |
 | `ui/render.js` | Hands the state to each element; which pane is in front |
 | `ui/format.js` | Dates, counts, escaping, the monogram |
-| `ui/glyphs.js`, `ui/icons.js` | Entity glyphs; action icons |
+| `ui/markup.js` | The markup of the design system's components: icons, dots, chips, callouts, rows, cards |
 | `ui/inspect.js` | Asking for a look, and the document's graph, when Tokens is in front |
 | `ui/components/` | The elements, above |
 | `ui/commandBus.js` | The message bridge to the main thread, and who sent the running command |

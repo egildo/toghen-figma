@@ -13,6 +13,8 @@ const MIN_WIDTH = 320;
 const MIN_HEIGHT = 320;
 /** Below this the surface is a header and nothing else, which is its collapsed form. */
 const MIN_RESULTS_HEIGHT = 120;
+/** How far one press of Up or Down moves the splitter. */
+const RESULTS_STEP = 24;
 
 export function initShell() {
   initWindowGrip();
@@ -103,6 +105,9 @@ function initWindowGrip() {
  * custom property beats the stylesheet's relative heights, so a size the person
  * chose is never overridden by a later result, and nothing has to remember that
  * they chose it. Collapsing is the surface's own (its bar is the toggle).
+ *
+ * It is a separator a keyboard reaches: Up and Down move it a step, and it says
+ * how much of the window the surface takes, as a percentage.
  */
 function initResultsSurface() {
   const surface = document.querySelector('tg-results');
@@ -110,6 +115,15 @@ function initResultsSurface() {
   if (!surface || !splitter) return;
 
   let dragging = false;
+
+  const say = () => {
+    splitter.setAttribute('aria-valuenow', String(Math.round((surface.getBoundingClientRect().height / window.innerHeight) * 100)));
+  };
+  // The surface grows upward; a height is what the pointer, or a key, asks for.
+  const resize = (height) => {
+    surface.style.setProperty('--results-height', `${Math.round(Math.min(window.innerHeight, Math.max(MIN_RESULTS_HEIGHT, height)))}px`);
+    say();
+  };
 
   splitter.addEventListener('pointerdown', (event) => {
     dragging = true;
@@ -119,11 +133,10 @@ function initResultsSurface() {
 
   splitter.addEventListener('pointermove', (event) => {
     if (!dragging) return;
-    // The surface grows upward: the distance from the pointer to the bottom of
-    // the window is the height being asked for.
+    // The distance from the pointer to the bottom of the window is the height being asked for.
     const height = window.innerHeight - event.clientY;
     if (height < MIN_RESULTS_HEIGHT) return;
-    surface.style.setProperty('--results-height', `${Math.round(height)}px`);
+    resize(height);
   });
 
   const stop = (event) => {
@@ -134,4 +147,12 @@ function initResultsSurface() {
 
   splitter.addEventListener('pointerup', stop);
   splitter.addEventListener('pointercancel', stop);
+
+  splitter.addEventListener('focus', say);
+  splitter.addEventListener('keydown', (event) => {
+    const step = { ArrowUp: RESULTS_STEP, ArrowDown: -RESULTS_STEP }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    resize(surface.getBoundingClientRect().height + step);
+  });
 }

@@ -12,15 +12,26 @@
  */
 const ROW_KEYS = ['data-open-group', 'data-open-token', 'data-template', 'data-recent'];
 
-/** Where focus is, as a way to find it again after a redraw: the row it is in, and whether it is the row itself or its summary button. */
+/** The attributes that say how a control looks or what state it is in, not which control it is. */
+const LOOKS = ['data-variant', 'data-size', 'data-shape', 'data-text', 'data-tone', 'data-density', 'data-state', 'data-over'];
+
+/**
+ * Where focus is, as a way to find it again after a redraw. In a row that can hold focus: the row, and whether it
+ * is the row itself or its summary. Any other control: a selector for its like, by what names it (its tag and
+ * the `data-*` that are not its look), and which of those it was.
+ */
 function focusSpot(active, target) {
-  const row = active?.closest?.('tg-row');
-  if (!row || !target.contains(row)) return null;
-  const key = ROW_KEYS.find((name) => row.hasAttribute(name));
-  if (!key) return null;
-  const inSummary = active !== row && active.matches('[data-part="summary"]');
-  if (active !== row && !inSummary) return null;
-  return { selector: `tg-row[${key}="${CSS.escape(row.getAttribute(key))}"]`, summary: inSummary };
+  if (!active || active === target || !target.contains(active)) return null;
+  const row = active.closest?.('tg-row');
+  const key = row && target.contains(row) && ROW_KEYS.find((name) => row.hasAttribute(name));
+  const inSummary = !!key && active !== row && active.matches('[data-part="summary"]');
+  if (key && (active === row || inSummary))
+    return { selector: `tg-row[${key}="${CSS.escape(row.getAttribute(key))}"]`, summary: inSummary };
+  const names = [...active.attributes]
+    .map((attribute) => attribute.name)
+    .filter((name) => name.startsWith('data-') && !LOOKS.includes(name));
+  const selector = active.localName + names.map((name) => `[${name}="${CSS.escape(active.getAttribute(name))}"]`).join('');
+  return { selector, index: [...target.querySelectorAll(selector)].indexOf(active) };
 }
 
 export class TgElement extends HTMLElement {
@@ -62,15 +73,21 @@ export class TgElement extends HTMLElement {
     const active = document.activeElement;
     const focused = active && target.contains(active) && active.id ? active.id : null;
     const caret = focused && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
-    const spot = focused ? null : focusSpot(active, target);
+    // Focus that a redraw could not put back, because its control was disabled while a command ran, is still owed.
+    const owed = !active || active === document.body ? target._owedFocus : null;
+    const spot = focused ? null : (focusSpot(active, target) ?? owed);
 
     target.innerHTML = html;
 
-    // A row that had focus has been replaced by one like it: focus goes back to it, so the keys go on from there.
+    // What had focus has been replaced by one like it: focus goes back to it, so the keys go on from there.
+    let owing = null;
     if (spot) {
-      const row = target.querySelector(spot.selector);
-      (spot.summary ? row?.querySelector(':scope > [data-part="summary"]') : row)?.focus();
+      const like = spot.index === undefined ? target.querySelector(spot.selector) : target.querySelectorAll(spot.selector)[spot.index];
+      const element = spot.summary ? like?.querySelector(':scope > [data-part="summary"]') : like;
+      element?.focus();
+      if (element && document.activeElement !== element) owing = spot;
     }
+    target._owedFocus = owing;
 
     for (const [id, was] of kept) {
       const field = target.querySelector(`#${CSS.escape(id)}`);
