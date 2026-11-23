@@ -3,9 +3,9 @@
  * for theme and window size and buttons that post fixture messages into it.
  *
  * The page and its fixtures are how the screen is checked; there is no test
- * runner for the UI. Nothing here ships. Build first (`pnpm build`), then:
+ * runner for the UI. Nothing here ships. It listens on this machine only. Build first (`pnpm build`), then:
  *
- *   node scripts/preview.mjs            # http://localhost:4174
+ *   node scripts/preview.mjs            # http://127.0.0.1:4174
  *   PORT=5000 node scripts/preview.mjs
  */
 
@@ -47,6 +47,6 @@ createServer(async (request, response) => {
   } catch {
     response.writeHead(404).end(`Not found: ${requested}. Run pnpm build first.`);
   }
-}).listen(port, () => {
-  console.log(`Preview at http://localhost:${port}`);
+}).listen(port, '127.0.0.1', () => {
+  console.log(`Preview at http://127.0.0.1:${port}`);
 });

@@ -1477,7 +1477,7 @@ toghen-figma lock <library name>
 toghen-figma lock <library.figcraft> (--figcraft <port> | --figcraft-file <path.figcraft>) [--dry-run]
 ```
 
-`variables`, `components` and `sync` also take `--library <library>`, and `components` and `sync` `--use <library>`, repeatable; the two do not go together.
+`variables`, `components` and `sync` also take `--library <library>`, and `components` and `sync` `--use <library>`, repeatable; the two do not go together. `toghen-figma --help`, or `-h`, prints the usage on standard output and exits 0; no command, or one it does not know, prints it on standard error and exits 1.
 
 **The entry.** Every positional argument ending in `.json` is the entry of the core's `load`, in the order given: one is a string (a resolver document or a token file), several a list of token files. The others are component and artboard files. `variables`, `sync`, `check` and `members` need an entry; `components` refuses one, taking its design system from `--resolver`. No entry is `no entry given: a resolver document or token files (.json)`.
 

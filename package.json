@@ -9,7 +9,7 @@
     "build": "node build.mjs",
     "build:dist": "node build.mjs",
     "build:dist:prod": "NODE_ENV=production node build.mjs",
-    "build:watch": "node build.mjs --watch",
+    "build:watch": "node --watch-path=ui --watch-path=main --watch-path=shared --watch-path=manifest.json build.mjs",
     "preview": "node scripts/preview.mjs",
     "typecheck": "tsc -p tsconfig.plugin.json && tsc -p tsconfig.test.json",
     "expectations": "tsx scripts/expectation-sheet.ts",

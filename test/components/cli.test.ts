@@ -32,6 +32,15 @@ describe('toghen-figma: its arguments', () => {
     }
   });
 
+  it('prints the usage for --help, and exits 0', async () => {
+    for (const flag of ['--help', '-h']) {
+      const result = await run([flag]);
+      assert.equal(result.code, 0);
+      assert.match(result.stdout, /^usage: toghen-figma variables <entry\.json>…/);
+      assert.equal(result.stderr, '');
+    }
+  });
+
   it('asks each command for what it needs, and refuses what belongs to another', async () => {
     for (const [argv, message] of [
       [['variables'], /no entry given: a resolver document or token files/],
