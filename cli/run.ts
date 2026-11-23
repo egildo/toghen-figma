@@ -661,17 +661,16 @@ async function runSteps(
       }
       if (report.dryRun && report.steps.some((step) => step.kind === 'CREATE_SET')) created.push(name);
       // A dry run applies nothing, so what it would do is counted from its steps, as the real run would count it: for a set,
-      // the members a write step names; for an artboard, the layers it would make, patch or swap, and remove.
+      // the members it would make, write to and delete; for an artboard, the layers it would make, patch or swap, and remove.
       const of = (...kinds: string[]) => report.steps.filter((step) => kinds.includes(step.kind));
-      const counts =
-        report.dryRun && report.artboard
+      const counts = !report.dryRun
+        ? `${report.created.length} created · ${report.updated.length} updated · ${report.deleted.length} deleted`
+        : report.artboard
           ? `${of('CREATE_ARTBOARD').reduce((sum, step) => sum + (step.layers ?? 0), 0) + of('CREATE_LAYER', 'REPLACE_LAYER').length} would create · ` +
             `${new Set(of('PATCH_LAYER', 'SWAP_COMPONENT').map((step) => step.address)).size} would update · ${of('DELETE_LAYER').length} would delete`
-          : `${report.created.length} created · ${
-              report.dryRun
-                ? `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update`
-                : `${report.updated.length} updated`
-            } · ${report.deleted.length} deleted`;
+          : `${of('CREATE_SET').reduce((sum, step) => sum + (step.members ?? 0), 0) + of('CREATE_MEMBER').length} would create · ` +
+            `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update · ` +
+            `${of('DELETE_MEMBER').length} would delete`;
       // Fields kept as hand edits, counted: their notes are among the many standing ones and easy to miss.
       const { drifted } = report;
       io.stdout(

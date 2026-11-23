@@ -1643,7 +1643,7 @@ describe('toghen-figma: skips by cause, and --verbose', () => {
       mock,
     );
     assert.equal(dry.code, 0, `${dry.stdout}\n${dry.stderr}`);
-    assert.match(dry.stdout, /^Panel \(dry run\): \d+ steps? · 0 created · 1 would update · 0 deleted$/m);
+    assert.match(dry.stdout, /^Panel \(dry run\): \d+ steps? · 0 would create · 1 would update · 0 would delete$/m);
     assert.match(dry.stdout, /^ {2}patch Panel Panel: .+$/m);
     assert.deepEqual(
       mock
@@ -1660,6 +1660,23 @@ describe('toghen-figma: skips by cause, and --verbose', () => {
     assert.equal(real.code, 0, `${real.stdout}\n${real.stderr}`);
     assert.match(real.stdout, /^Panel: \d+ steps? · 0 created · 1 updated · 0 deleted$/m);
     assert.doesNotMatch(real.stdout, /patch Panel/, 'without --verbose, no patch lines');
+  });
+
+  it('a dry run of a set counts the members the real run would create and delete', async () => {
+    const mock = fileMock();
+    const argv = ['components', 'ui/badge.component.kdl', '--resolver', 'tokens/resolver.json'];
+    const first = start([...argv, '--dry-run'], files({ 'ui/badge.component.kdl': badge('hot cold') }, true));
+    await pair(first, mock);
+    const planned = await first.done;
+    assert.equal(planned.code, 0, `${planned.stdout}\n${planned.stderr}`);
+    assert.match(planned.stdout, /^Badge \(dry run\): 1 step · 2 would create · 0 would update · 0 would delete$/m);
+
+    const built = await again(argv, files({ 'ui/badge.component.kdl': badge('hot cold') }, true), first, mock);
+    assert.match(built.stdout, /^Badge: \d+ steps? · 2 created · 0 updated · 0 deleted$/m);
+
+    const changed = await again([...argv, '--dry-run'], files({ 'ui/badge.component.kdl': badge('hot warm') }, true), first, mock);
+    assert.equal(changed.code, 0, `${changed.stdout}\n${changed.stderr}`);
+    assert.match(changed.stdout, /^Badge \(dry run\): \d+ steps · 1 would create · 0 would update · 1 would delete · 1 breaking$/m);
   });
 });
 
