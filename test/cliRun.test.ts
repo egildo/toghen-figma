@@ -277,8 +277,8 @@ describe('toghen-figma sync', () => {
       'LOAD_DOCUMENT',
       'CHECK_COMPONENTS',
       'PLAN_VARIABLE_SYNC',
-      'PLAN_STYLE_SYNC',
       'GET_FIGMA_COLLECTIONS',
+      'PLAN_STYLE_SYNC',
       'RUN_COMPONENT',
       'FINISH_COMPONENTS',
     ]);
@@ -294,6 +294,34 @@ describe('toghen-figma sync', () => {
       .filter((api) => !/clientStorage/.test(api));
     assert.deepEqual(wrote, [], 'nothing in the file changed');
     assert.ok(!mock.variables().some((v) => v.name === 'space/xl'));
+  });
+
+  it('a dry run tells the style plan the variables the variable plan would create, so it gives no advice to sync them first', async () => {
+    const mock = fileMock();
+    // A text style whose size refers to a token that has no variable in the file yet.
+    const tokens = JSON.stringify({
+      size: { md: { $type: 'dimension', $value: { value: 16, unit: 'px' } } },
+      text: {
+        body: {
+          $type: 'typography',
+          $value: { fontFamily: ['Inter'], fontSize: '{size.md}', fontWeight: 400, lineHeight: 1.5, fontStyle: 'Regular' },
+        },
+      },
+    });
+    const run = start(['variables', 'tokens/resolver.json', '--dry-run'], {
+      ...files({}, false),
+      '/repo/tokens/base.tokens.json': tokens,
+    });
+    const plugin = await pair(run, mock);
+    const result = await run.done;
+
+    assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /^Variable plan: 1 creates/m);
+    assert.doesNotMatch(result.stdout, /sync variables first/);
+    const style = plugin.commands.find((command) => command.type === 'PLAN_STYLE_SYNC')!;
+    assert.deepEqual((style.payload as { pending?: { variables: unknown[] } }).pending?.variables, [
+      { collection: 'Tokens', name: 'size/md', type: 'FLOAT' },
+    ]);
   });
 
   it('a dry run stops when the plan would make a name a second time, in another collection', async () => {

@@ -1729,6 +1729,8 @@ The engine treats `pending` this way:
 - **A real run refuses `pending`.** It would build components bound to variables that do not exist; in a real `sync` the variables were made a step earlier, so every name resolves without it.
 - **A pending name joins the ambiguity check.** The engine reports a pending variable that matches a token alongside an existing one in another collection as ambiguous, as it would two existing ones.
 
+The style plan of a dry run is told the same way, with the variables the variable plan before it would create (`PLAN_STYLE_SYNC`'s `pending`). A member that refers to one gets no "sync variables first" warning, which the real run, where the variable exists by then, never gives: it is checked for its type as a variable in the file would be, and the dry run plans no binding, since it has no id to bind.
+
 **Worked example.** The file has a `Tokens` collection with `space/sm`, `md` and `lg`. The resolver document adds `space.xl`, and a component file uses `itemSpacing="{space.xl}"` on line 12. `toghen-figma sync … --dry-run`:
 
 1. The repository check finds `space.xl` in the design system.

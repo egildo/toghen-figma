@@ -557,6 +557,17 @@ async function runSteps(
   }
 
   const planned: Operation[] = [];
+  // A dry run writes nothing, so what the plans before a step would have made is told to it: the style plan, then each
+  // component run. The file's collections are read once, for the names of those the plans do not create.
+  let collections: { id: string; name: string }[] | undefined;
+  const pendingOf = async (operations: readonly Operation[]): Promise<Pending | undefined> => {
+    if (!collections) {
+      const listed = await ask({ type: 'GET_FIGMA_COLLECTIONS', payload: {} }, 'FIGMA_COLLECTIONS');
+      if (listed.type !== 'FIGMA_COLLECTIONS') return undefined;
+      collections = listed.payload;
+    }
+    return pendingNames(operations, collections);
+  };
   if (source && args.entry !== undefined) {
     // 4. The variables.
     // Both plans are given the same collection name: the style plan binds a style's members to the variables the variable plan put there.
@@ -582,7 +593,11 @@ async function runSteps(
       },
     ];
     for (const step of steps) {
-      const response = await ask(step.plan, 'PLAN_READY');
+      const plan: Command =
+        args.dryRun && step.plan.type === 'PLAN_STYLE_SYNC'
+          ? { type: 'PLAN_STYLE_SYNC', payload: { ...step.plan.payload, pending: await pendingOf(planned) } }
+          : step.plan;
+      const response = await ask(plan, 'PLAN_READY');
       if (response.type !== 'PLAN_READY') continue;
       describePlan(step.label, response.payload, io, args.verbose === true);
       planned.push(...response.payload.operations);
@@ -621,12 +636,8 @@ async function runSteps(
     }
   }
 
-  // A dry run writes nothing, so what the plans would have made is told to each component run.
   let pending: Pending | undefined;
-  if (args.dryRun && args.entry !== undefined) {
-    const collections = await ask({ type: 'GET_FIGMA_COLLECTIONS', payload: {} }, 'FIGMA_COLLECTIONS');
-    if (collections.type === 'FIGMA_COLLECTIONS') pending = pendingNames(planned, collections.payload);
-  }
+  if (args.dryRun && args.entry !== undefined) pending = await pendingOf(planned);
 
   // 6. Each component file, one at a time. A dry run tells each the sets the files before it would create (ruling 7a).
   let exit = 0;

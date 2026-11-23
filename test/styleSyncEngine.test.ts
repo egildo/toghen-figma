@@ -575,6 +575,25 @@ describe('StyleSyncEngine — a member becomes a binding', () => {
     }
   });
 
+  it('says nothing of a variable the same dry run would create, and binds it when the real run gets there', async () => {
+    createFigmaMock().install();
+    const pending = {
+      variables: [
+        { collection: 'Demo', name: 'font/family/sans', type: 'STRING' as const },
+        { collection: 'Demo', name: 'font/size/md', type: 'STRING' as const },
+      ],
+      textStyles: [],
+    };
+
+    const { operations } = await new StyleSyncEngine().buildPlan(bindingDocument(), defaultTokenTypeMap, undefined, { pending });
+
+    assert.equal(styleOf(operations, 'Demo.text.body').bindings, undefined, 'a dry run has no variable to bind');
+    assert.deepEqual(warningsFor(operations, 'Demo.text.body'), [
+      '"Demo.text.body.fontSize" refers to "Demo.font.size.md", but that variable is STRING and ' +
+        'the field takes FLOAT, so the value is written instead of a binding.',
+    ]);
+  });
+
   it('warns, and writes the value, when the variable has another type', async () => {
     const id = fileWith([
       ['font/family/sans', 'STRING'],
