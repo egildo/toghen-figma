@@ -340,19 +340,13 @@ function rowHtml(r) {
 
 class TgResults extends TgElement {
   setup() {
-    this.innerHTML = `<div class="splitter" id="results-splitter" title="Drag to resize"><span></span></div><div class="surface"></div>`;
+    // The splitter is moved by the pointer and by Up and Down (shell.js); it is a separator a keyboard can reach.
+    this.innerHTML =
+      `<div class="splitter" id="results-splitter" role="separator" aria-orientation="horizontal" aria-label="Resize the results"` +
+      ` aria-valuemin="0" aria-valuemax="100" tabindex="0" title="Drag, or press Up and Down, to resize"><span></span></div><div class="surface"></div>`;
     this.surface = this.querySelector('.surface');
 
-    this.on('click', '[data-action="toggle"]', (_bar, event) => {
-      // A chip in the collapsed bar is a filter, not the bar.
-      if (!event.target.closest('[data-filter]')) toggleResults();
-    });
-    // The bar is a button that is not a native one. A chip inside it is the design system's, and answers for itself.
-    this.on('keydown', '.bar[role="button"]', (bar, event) => {
-      if (event.target !== bar || (event.key !== 'Enter' && event.key !== ' ')) return;
-      event.preventDefault();
-      bar.click();
-    });
+    this.on('click', '[data-action="toggle"]', () => toggleResults());
     this.on('click', '[data-filter]', (button) => {
       const key = button.dataset.filter;
       const state = getState();
@@ -394,12 +388,14 @@ class TgResults extends TgElement {
         `<button type="button" class="tg-button" data-size="sm" data-action="cancel">Cancel</button></div>`
       : '';
 
+    // The toggle is the bar's button, and the chips sit beside it: a filter is a control of its own, not part of a button.
     const bar =
-      `<header class="bar" data-action="toggle" role="button" aria-expanded="${!collapsed}">` +
+      `<header class="bar"><button type="button" class="toggle" data-action="toggle" aria-expanded="${!collapsed}">` +
       `${icon(collapsed ? 'chevronUp' : 'chevronDown', 'sm', 'muted')}<span class="title">Results</span>` +
       (view.source
         ? `<span class="source">${escHtml(view.source)}${view.time ? ` · ${escHtml(view.time)}` : ''}</span>`
         : `<span class="source none">nothing has run</span>`) +
+      `</button>` +
       (collapsed ? `<span class="chips">${chips.join('')}</span>` : view.note ? `<span class="note">${escHtml(view.note)}</span>` : '') +
       `</header>`;
 

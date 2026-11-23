@@ -40,7 +40,8 @@ p {
 
 /* Focus on what the application draws itself; the components draw their own. */
 .spine:focus-visible,
-tg-results .bar:focus-visible,
+tg-results .bar .toggle:focus-visible,
+tg-results .splitter:focus-visible,
 tg-dot[tabindex]:focus-visible {
   outline: var(--tg-bw-2) solid var(--tg-accent-bg);
   outline-offset: var(--tg-off-out);
@@ -390,8 +391,23 @@ tg-results .bar {
   min-height: var(--tg-h-bar);
   padding: 0 var(--tg-sp-3);
   flex: none;
-  cursor: pointer;
   min-width: 0;
+}
+
+/* The toggle is the bar's own button, without a button's face: it takes the bar up to the chips. */
+tg-results .bar .toggle {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
 }
 
 tg-results .bar .title {
