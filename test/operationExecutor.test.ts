@@ -289,6 +289,59 @@ describe('batchRunner — failure semantics', () => {
     assert.deepEqual(mock.collections(), []);
   });
 
+  it('reports a refused mode as one failure, and its values as skipped prerequisites', async () => {
+    const mock = createFigmaMock()
+      .withModeCap(2)
+      .withCollection('Demo', ['light', 'dark'])
+      .withVariable('Demo', 'Demo/a', 'FLOAT')
+      .install();
+    const collection = mock.collections()[0];
+    const variable = mock.variable('Demo', 'Demo/a')!;
+    const value = (n: number): Operation => ({
+      kind: 'SET_VARIABLE_VALUE',
+      variableId: variable.id,
+      modeId: '$mode:Demo/sepia',
+      value: n,
+      label: 'Demo/a [sepia]',
+      tokenPath: 'Demo.a',
+      modeName: 'sepia',
+    });
+
+    const summary = await runOperations(
+      [{ kind: 'ADD_MODE', collectionId: collection.id, collectionName: 'Demo', modeName: 'sepia' }, value(1), value(2)],
+      { onProgress: noProgress },
+    );
+
+    assert.equal(summary.failed, 1, 'only the mode that was refused');
+    assert.deepEqual(
+      summary.results.filter((r) => r.operation.kind === 'SET_VARIABLE_VALUE').map((r) => [r.status, r.reason]),
+      [
+        ['skipped', 'prerequisite failed: $mode:Demo/sepia'],
+        ['skipped', 'prerequisite failed: $mode:Demo/sepia'],
+      ],
+    );
+  });
+
+  it('counts the modes a refused collection would have made among what failed with it', async () => {
+    createFigmaMock().withModeCap(2).install();
+    const ops = collectionPlan();
+    // A value that needs nothing from the plan but the mode: blocked by it.
+    ops.push({
+      kind: 'SET_VARIABLE_VALUE',
+      variableId: 'VariableID:elsewhere',
+      modeId: '$mode:Demo/sepia',
+      value: 2,
+      label: 'Demo/b [sepia]',
+      tokenPath: 'Demo.b',
+      modeName: 'sepia',
+    });
+
+    const summary = await runOperations(ops, { onProgress: noProgress });
+
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.results.at(-1)?.reason, 'prerequisite failed: $mode:Demo/sepia');
+  });
+
   it('counts a cancelled operation apart from a failed one', async () => {
     createFigmaMock().install();
 

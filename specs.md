@@ -141,7 +141,7 @@ variable, it follows the variable's modes. See *A member becomes a binding*.
 Executes operation plans with progress reporting, cancellation support, and symbolic ID resolution.
 
 **Features:**
-- Symbolic-id resolution between operations, with a failed producer's dependents reported as skipped prerequisites rather than as their own failures. *Whether a plan is internally consistent* is checked at **plan** time by `main/utils/planSymbols.ts`, not by a separate execution mode (see below)
+- Symbolic-id resolution between operations, with a failed producer's dependents reported as skipped prerequisites rather than as their own failures. A producer is what `producedSymbols()` names: a collection, with the modes it is made with, a mode added, a variable. So a mode the file's plan refuses is one failure, and its values are skipped. *Whether a plan is internally consistent* is checked at **plan** time by `main/utils/planSymbols.ts`, not by a separate execution mode (see below)
 - Progress callback for UI updates
 - Cancellation signal (via `AbortController`)
 - Automatic symbolic ID resolution between CREATE and subsequent operations
