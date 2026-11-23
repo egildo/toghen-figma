@@ -43,7 +43,7 @@ import { figcraftWriter } from './figcraftApply.js';
 import { splitKey, type FcLibrary } from './figcraftLibrary.js';
 import { clearWrites, hasWrites, noWrites, sceneOf, writeSteps, type FcNode, type Scene } from './figcraftScene.js';
 
-/** One connection to FigCraft, its control socket or a headless session: one request, one reply, in order. */
+/** One connection to FigCraft, its control socket or a headless session: one reply to each request, by its id. */
 export interface Control {
   call(method: string, params: Record<string, unknown>): Promise<unknown>;
   /** Opens a file on disk in a tab of its own, or shows it where it is open already; answers the tab's index. */
@@ -100,7 +100,10 @@ export function connect(port: number): Promise<Control> {
         }
         const pending = typeof reply.id === 'number' ? waiting.get(reply.id) : undefined;
         // A refusal no request's id names (`bad JSON`, `message too large`) ends the connection, which FigCraft then closes.
-        if (!pending) return void (reply.ok ? undefined : end(new Error(reply.error ?? 'FigCraft refused the request')));
+        if (!pending) {
+          if (!reply.ok) end(new Error(reply.error ?? 'FigCraft refused the request'));
+          return;
+        }
         waiting.delete(reply.id as number);
         if (reply.ok) pending.resolve(reply.result);
         else pending.reject(new Error(reply.error ?? 'FigCraft refused the request'));
