@@ -6,13 +6,16 @@
  * against FigCraft 0.9.0 (plan, *Components in FigCraft*): a node id is never given again, an instance is made with a
  * copy of its main's layer data, an edit of a bound field lets its variable go, and a property's wiring and a frame's
  * modes are kept but not reported. The shapes are the ones FigCraft 0.7.0 answered with, measured (decisions.md, *A FigCraft target*), and
- * `style.list` the one 0.9.0 answers with (`listedStyle`).
+ * `style.list` the one 0.9.0 answers with (`listedStyle`). As 0.18.1 does, it refuses a parameter a command does not take
+ * (`PARAMETERS`), and lists each open file with an id, and with its path only to a call that names no agent.
  */
 
 import { createServer, type Server, type Socket } from 'node:net';
 import { libraryCommand, type LibraryFile } from './fakeLibraries.js';
 
 interface File {
+  /** The open file's id, as `doc.list` gives it: a file opened again is given another. */
+  id?: number;
   name: string;
   path: string | null;
   collections: Array<{ id: string; name: string; modes: Array<{ id: string; name: string }> }>;
@@ -73,6 +76,87 @@ const file = (name: string, path: string | null = null): File => ({
   styles: [],
   pages: [{ id: 1, name: 'Page 1', current: true }],
 });
+
+/**
+ * The parameters each command takes, as figcraft-cli 0.18.1's `commands --json` lists them; `id` and `ids` are taken by
+ * every command. Any other is refused, naming it, as FigCraft refuses it: never ignored.
+ */
+const PARAMETERS: Record<string, string[]> = {
+  'doc.list': [],
+  'doc.switch': ['index'],
+  'file.new': ['name'],
+  'file.open': ['path', 'data', 'name', 'variables', 'reload'],
+  'file.save': ['path', 'overwrite'],
+  'file.close': ['index', 'force'],
+  'command.batch': ['label', 'onError', 'commands'],
+  'text.fonts': ['family', 'style', 'features', 'axes'],
+  'variable.list': [],
+  'style.list': ['type'],
+  'variable.createCollection': ['name', 'modes'],
+  'variable.addMode': ['collection', 'name', 'from'],
+  'variable.removeMode': ['collection', 'mode'],
+  'variable.create': ['collection', 'name', 'type', 'value', 'values', 'description'],
+  'variable.set': ['variable', 'mode', 'value'],
+  'variable.update': ['variable', 'name', 'description', 'scopes', 'hiddenFromPublishing', 'codeSyntax'],
+  'variable.delete': ['variable'],
+  'variable.bind': ['ids', 'field', 'variable'],
+  'variable.setMode': ['ids', 'collection', 'mode'],
+  'style.create': ['type', 'name', 'from', 'description', 'value'],
+  'style.update': ['style', 'name', 'description', 'value', 'from'],
+  'style.bind': ['style', 'field', 'variable'],
+  'style.apply': ['ids', 'style', 'target', 'start', 'end'],
+  'page.list': [],
+  'page.add': ['name'],
+  'page.select': ['id', 'index'],
+  'node.get': ['id', 'fields', 'outline'],
+  'node.set': ['ids', 'props'],
+  'node.create': [
+    'type',
+    'x',
+    'y',
+    'width',
+    'height',
+    'parent',
+    'index',
+    'name',
+    'text',
+    'characters',
+    'path',
+    'points',
+    'closed',
+    'props',
+    'select',
+  ],
+  'node.reparent': ['ids', 'parent', 'index'],
+  'node.reorder': ['id', 'index'],
+  'frame.create': ['preset', 'x', 'y', 'width', 'height', 'parent', 'index', 'name', 'props', 'select'],
+  'text.create': ['text', 'characters', 'x', 'y', 'parent', 'index', 'name', 'width', 'props', 'select'],
+  'edit.delete': ['ids'],
+  'instance.create': ['component', 'x', 'y', 'parent'],
+  'instance.swap': ['ids', 'component'],
+  'instance.setProperties': ['ids', 'properties'],
+  'instance.slotInsert': ['id', 'slot', 'component', 'index', 'replace'],
+  'component.create': ['ids'],
+  'component.combineVariants': ['ids'],
+  'component.addProperty': ['id', 'name', 'type', 'default', 'layer', 'preferred'],
+  'component.editProperty': ['id', 'name', 'newName', 'default', 'value', 'newValue', 'index', 'preferred'],
+  'component.deleteProperty': ['id', 'name'],
+  'component.makeSlot': ['id', 'name', 'preferred'],
+  'component.exposeInstance': ['id', 'exposed'],
+  'component.bindProperty': ['layer', 'property', 'field'],
+  'library.add': ['path'],
+  'library.list': ['assets'],
+  'library.updates': [],
+  'library.acceptUpdates': ['ids'],
+  'library.publish': ['description', 'include', 'exclude'],
+  'library.import': ['library', 'component'],
+  'library.importVariable': ['library', 'variable'],
+  'library.applyStyle': ['library', 'style', 'ids', 'target'],
+  'library.setVariableMode': ['library', 'collection', 'mode', 'ids'],
+  'library.remove': ['id'],
+  'library.publishToServer': ['server', 'key', 'description', 'include', 'exclude'],
+  'library.swap': ['from', 'to'],
+};
 
 /** The id FigCraft gives a new object: the highest in use plus one, so the newest one's id is given again once it is deleted (measured). */
 function nextId(taken: ReadonlyArray<Record<string, any>>, prefix: string): string {
@@ -390,9 +474,12 @@ export async function startFakeFigcraft(
   names: string[] = ['Untitled'],
   fonts: Record<string, string[]> = { Inter: ['Regular', 'Bold'] },
 ): Promise<FakeFigcraft> {
+  /** The next open file's id; the call being answered names an agent when `agent` is set. */
+  let documents = 1;
+  let agent: string | undefined;
   const fake: FakeFigcraft = {
     port: 0,
-    tabs: names.map((name) => file(name)),
+    tabs: names.map((name) => ({ ...file(name), id: documents++ })),
     active: 0,
     labels: [],
     gets: [],
@@ -424,16 +511,30 @@ export async function startFakeFigcraft(
   const run = (command: string, params: Record<string, any>): unknown => {
     const f = tab();
     if (command === fake.refuse) throw new Error(`refused ${command}`);
+    const takes = PARAMETERS[command];
+    if (!takes) throw new Error(`unknown command ${command}`);
+    const unknown = Object.keys(params).find((key) => key !== 'id' && key !== 'ids' && !takes.includes(key));
+    if (unknown)
+      throw new Error(
+        `invalid parameters for \`${command}\`: unknown parameter \`${unknown}\` (it takes ${takes.length > 0 ? takes.join(', ') : 'none'})`,
+      );
     switch (command) {
       case 'doc.list':
-        return fake.tabs.map((t, index) => ({ index, name: t.name, path: t.path, active: index === fake.active, dirty: false }));
+        return fake.tabs.map((t, index) => ({
+          index,
+          id: t.id,
+          name: t.name,
+          ...(agent === undefined ? { path: t.path } : {}),
+          active: index === fake.active,
+          dirty: false,
+        }));
       case 'doc.switch':
         if (!fake.tabs[params.index]) throw new Error(`no tab ${params.index}`);
         fake.active = params.index;
         return { ok: true };
       // Files on disk are `disk`'s: a tab is opened from what was saved there, and a save writes it there whole.
       case 'file.new':
-        fake.tabs.push(file(params.name ?? 'Untitled'));
+        fake.tabs.push({ ...file(params.name ?? 'Untitled'), id: documents++ });
         fake.active = fake.tabs.length - 1;
         return { index: fake.active };
       case 'file.open': {
@@ -441,7 +542,7 @@ export async function startFakeFigcraft(
         if (open < 0) {
           const saved = fake.disk.get(params.path);
           if (!saved) throw new Error(`${params.path}: No such file or directory (os error 2)`);
-          fake.tabs.push(JSON.parse(JSON.stringify(saved)));
+          fake.tabs.push({ ...JSON.parse(JSON.stringify(saved)), id: documents++ });
         }
         fake.active = open < 0 ? fake.tabs.length - 1 : open;
         return { index: fake.active };
@@ -586,8 +687,6 @@ export async function startFakeFigcraft(
         return { ok: true };
       }
       case 'node.get': {
-        const unknown = Object.keys(params).find((key) => !['id', 'fields', 'outline'].includes(key));
-        if (unknown) throw new Error(`invalid parameters for \`node.get\`: unknown parameter \`${unknown}\` (it takes id, fields, outline)`);
         const page = f.pages.find((candidate) => candidate.id === params.id);
         if (page)
           return {
@@ -914,6 +1013,7 @@ export async function startFakeFigcraft(
               result: [{ id: 0, main: true, focused: true, active: tab().name, files: fake.tabs.map((t) => t.name) }],
             };
           else if (request.method === 'engine.execute') {
+            agent = request.params.agent;
             if (request.params.command === 'command.batch' && request.params.params.label) fake.labels.push(request.params.params.label);
             const gets = (commands: any[] = []): void => {
               for (const { command, params } of commands)

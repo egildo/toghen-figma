@@ -94,6 +94,10 @@ const FLAGS: Record<string, { value: string[]; switches: string[] }> = {
 /** Runs the command. Returns the exit code: 0, or 1 when anything failed. */
 export async function main(argv: string[], io: RunIo): Promise<number> {
   const [command, ...rest] = argv;
+  if (command === '--help' || command === '-h') {
+    io.stdout(USAGE);
+    return 0;
+  }
   if (command === undefined || !(command in FLAGS)) {
     io.stderr(`${command === undefined ? 'no command given' : `unknown command ${command}`}\n${USAGE}`);
     return 1;

@@ -894,7 +894,7 @@ A `.figcraft` file can be kept in step with no one at the screen. `--figcraft-fi
 ```
 
 1. **Install `figcraft-cli` 0.8.0 or later** on the machine that runs it, the same version as the app you open the file with. An older one is refused: it cannot read back the stamps Toghen keeps in the file. If it is not on the PATH, name it: `FIGCRAFT_CLI=/path/to/figcraft-cli`.
-2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there.
+2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there; a folder that does not exist stops the run before it starts, since the file could not be saved there.
 3. **Commit the saved file**, or keep it as the job's artifact.
 
 In a job, as a step:
@@ -937,7 +937,7 @@ pnpm exec toghen-figma components button.component.kdl --page Components --dry-r
 pnpm exec toghen-figma components *.component.kdl --resolver tokens.resolver.json
 ```
 
-- **Paths** are read from the directory you typed the command in.
+- **Paths** are read from the directory the command runs in: the one you typed it in, with `pnpm exec`; in a script, the package's folder, or the one the script changes to (`cd design && toghen-figma …`).
 - **A file with an error builds nothing.** The plugin checks every file before anything is written, and the command prints each problem as `<file>:<line>:<column> <message>` and exits 1. Warnings are printed the same way, with `warning:` before the message, and do not stop anything.
 - **`--resolver`** loads the design system into the plugin first, for a file whose axes or bindings come from the tokens. Nothing is synced.
 - **`--page <name>`** is the page the set lives on; the current page when absent. **`--dry-run`** plans and writes nothing. **`--allow-breaking`** lets a run take steps that break instances; without it a run that would break any stops before writing.

@@ -78,19 +78,22 @@ interface Say {
  */
 export async function publish(control: Control, pin: Pin, path: string, say: Say): Promise<number> {
   let version: number;
+  let said: string;
   try {
     const [published] = (await inFile(control, pin, 'Publish library', [{ command: 'library.publish', params: {} }])) as [
       { version: number },
     ];
     version = published.version;
-    say.stdout(`Published the library ${path} as version ${version}, and saved it.\n`);
+    said = `Published the library ${path} as version ${version}, and saved it.\n`;
   } catch (error) {
     const unchanged = /no changes to publish since version (\d+)/.exec(error instanceof Error ? error.message : String(error));
     if (!unchanged) throw error;
     version = Number(unchanged[1]);
-    say.stdout(`The library ${path} is already published as version ${version}: nothing to publish.\n`);
+    said = `The library ${path} is already published as version ${version}: nothing to publish.\n`;
   }
+  // Said once the save is done: a save that fails is the run's error, and nothing claims it.
   await savePinned(control, pin, path);
+  say.stdout(said);
   return version;
 }
 

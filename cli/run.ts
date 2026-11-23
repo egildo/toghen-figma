@@ -11,7 +11,8 @@
  * lock (`copyKeys`).
  */
 
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { load, Resolver, type ResolverDocument } from '@toghen/lib';
 import { namesOfFiles } from '../main/components/file.js';
 import { declaredLibraries } from '../main/components/resolve.js';
@@ -333,6 +334,19 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
     }
   }
   if (unreadable) return 1;
+  // A FigCraft file the run saves at its end, the target headless and a library it builds, is saved into a folder that
+  // must be there already: found missing only at the save, it would lose the whole run.
+  const builds = (args.figcraft !== undefined || args.figcraftFile !== undefined) && (args.entry !== undefined || args.files.length > 0);
+  for (const [flag, file] of [
+    ['--figcraft-file', args.figcraftFile],
+    ['--library', builds ? args.library : undefined],
+  ]) {
+    const folder = file === undefined ? undefined : dirname(resolve(io.cwd, file));
+    if (folder !== undefined && !existsSync(folder)) {
+      io.stderr(`${flag} ${file}: the folder ${folder} does not exist, so the run could not save the file there; nothing was written\n`);
+      return 1;
+    }
+  }
 
   // 2. Wait for the plugin, or both with a library, or reach FigCraft, which needs no plugin.
   let bridge: Bridge;
@@ -359,7 +373,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (args.library !== undefined) {
         const path = resolve(io.cwd, args.library);
         figcraft = { target: opened, path };
-        if (opened.pin.tab.path === path)
+        if (opened.pin.path === path)
           throw new Error(`The target is the library ${args.library} itself: show, or name, the file that uses it.`);
         // `lock` builds nothing, so it needs only the target; a build happens in the library file.
         if (args.entry !== undefined || args.files.length > 0) {
@@ -427,7 +441,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (figcraft.library) {
         await figcraft.library.close();
         // A file the run made and did not save is not left behind as an empty tab.
-        if (figcraft.library.made && figcraft.library.pin.tab.path === null)
+        if (figcraft.library.made && figcraft.library.pin.path === undefined)
           await closeTab(figcraft.target.control, figcraft.library.pin).catch(() => {});
       }
       await figcraft.target.close();

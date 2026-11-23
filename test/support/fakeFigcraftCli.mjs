@@ -2,16 +2,18 @@
 /**
  * `figcraft-cli` as a headless run meets it: `figcraft-cli mcp`, MCP's JSON-RPC over stdio, with the tools the run
  * calls (`run_command`, `open_file`, `save_file`). It holds no file of its own: each command goes on to the fake
- * control socket (`fakeFigcraft.ts`) at `FAKE_FIGCRAFT_PORT`, so a test reads what was written there. A file is
- * "opened" by showing the fake's tab whose path it is. `FAKE_FIGCRAFT_VERSION` is the version it says it is, and every
- * tool call is appended to `FAKE_FIGCRAFT_LOG`, one JSON line each.
+ * control socket (`fakeFigcraft.ts`) at `FAKE_FIGCRAFT_PORT`, so a test reads what was written there. As 0.18.1's does,
+ * it runs each command for an agent named after the client, so `doc.list` gives no paths; `open_file` is `file.open`,
+ * and `save_file` the shown file's `file.save`, refused for a folder that is not on disk. `FAKE_FIGCRAFT_VERSION` is
+ * the version it says it is, and every tool call is appended to `FAKE_FIGCRAFT_LOG`, one JSON line each.
  */
 
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, existsSync } from 'node:fs';
 import { connect } from 'node:net';
+import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const { FAKE_FIGCRAFT_PORT: port, FAKE_FIGCRAFT_VERSION: version = '0.10.0', FAKE_FIGCRAFT_LOG: log } = process.env;
+const { FAKE_FIGCRAFT_PORT: port, FAKE_FIGCRAFT_VERSION: version = '0.18.1', FAKE_FIGCRAFT_LOG: log } = process.env;
 if (process.argv[2] !== 'mcp') {
   process.stderr.write('the fake answers mcp only\n');
   process.exit(2);
@@ -24,21 +26,23 @@ const replies = createInterface({ input: socket });
 const waiting = [];
 replies.on('line', (line) => waiting.shift()(JSON.parse(line)));
 let next = 1;
-const engine = (command, params = {}) =>
+/** The client's name, given at `initialize`: the agent every command it sends runs for. */
+let agent = '';
+const engine = (command, params = {}, as) =>
   new Promise((resolve, reject) => {
     waiting.push((reply) => (reply.ok ? resolve(reply.result) : reject(new Error(reply.error))));
-    socket.write(`${JSON.stringify({ id: next++, method: 'engine.execute', params: { command, params } })}\n`);
+    socket.write(
+      `${JSON.stringify({ id: next++, method: 'engine.execute', params: { command, params, ...(as !== undefined ? { agent: as } : {}) } })}\n`,
+    );
   });
 
 const tools = {
-  run_command: ({ command, params }) => engine(command, params),
-  open_file: async ({ path }) => {
-    const index = (await engine('doc.list')).findIndex((tab) => tab.path === path);
-    if (index < 0) return { opened: await engine('file.open', { path }) };
-    await engine('doc.switch', { index });
-    return { opened: { index } };
+  run_command: ({ command, params }) => engine(command, params, agent),
+  open_file: async ({ path }) => ({ opened: await engine('file.open', { path }) }),
+  save_file: async ({ path }) => {
+    if (!existsSync(dirname(path))) throw new Error(`${path}: No such file or directory (os error 2)`);
+    return engine('file.save', { path });
   },
-  save_file: async ({ path }) => ({ path, bytes: 0 }),
 };
 
 const send = (message) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
@@ -47,11 +51,13 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   const { id, method, params } = JSON.parse(line);
   queue = queue.then(async () => {
     if (id === undefined) return;
-    if (method === 'initialize')
+    if (method === 'initialize') {
+      agent = params?.clientInfo?.name ?? '';
       return send({
         id,
         result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'figcraft', version } },
       });
+    }
     if (method !== 'tools/call') return send({ id, error: { code: -32601, message: `unknown method ${method}` } });
     if (log) appendFileSync(log, `${JSON.stringify({ tool: params.name, arguments: params.arguments })}\n`);
     try {
