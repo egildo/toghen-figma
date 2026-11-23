@@ -937,7 +937,7 @@ pnpm exec toghen-figma components button.component.kdl --page Components --dry-r
 pnpm exec toghen-figma components *.component.kdl --resolver tokens.resolver.json
 ```
 
-- **Paths** are read from the directory you typed the command in.
+- **Paths** are read from the directory the command runs in: the one you typed it in, with `pnpm exec`; in a script, the package's folder, or the one the script changes to (`cd design && toghen-figma …`).
 - **A file with an error builds nothing.** The plugin checks every file before anything is written, and the command prints each problem as `<file>:<line>:<column> <message>` and exits 1. Warnings are printed the same way, with `warning:` before the message, and do not stop anything.
 - **`--resolver`** loads the design system into the plugin first, for a file whose axes or bindings come from the tokens. Nothing is synced.
 - **`--page <name>`** is the page the set lives on; the current page when absent. **`--dry-run`** plans and writes nothing. **`--allow-breaking`** lets a run take steps that break instances; without it a run that would break any stops before writing.

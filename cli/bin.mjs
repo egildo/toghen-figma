@@ -10,8 +10,9 @@ register();
 const { main } = await import('./main.ts');
 
 process.exitCode = await main(process.argv.slice(2), {
-  // pnpm runs a package script in the package's own directory; INIT_CWD is where the person typed it.
-  cwd: process.env.INIT_CWD ?? process.cwd(),
+  // The directory the command runs in: a script's, after any `cd` it makes. A script that wants where the person typed
+  // it passes that itself, as this package's own `toghen-figma` script does.
+  cwd: process.cwd(),
   readFile: (path) => readFileSync(path, 'utf8'),
   stdout: (text) => process.stdout.write(text),
   stderr: (text) => process.stderr.write(text),

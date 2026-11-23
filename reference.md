@@ -1465,7 +1465,7 @@ A layer's place is *after the previous layer the file names*, so a node Toghen d
 
 #### The command line: `toghen-figma`
 
-The package declares one command, `toghen-figma` (`cli/bin.mjs`, `cli/main.ts`). A dependent repository runs it with `pnpm exec toghen-figma …`, as an npm script. It replaces the earlier `toghen-components`.
+The package declares one command, `toghen-figma` (`cli/bin.mjs`, `cli/main.ts`). A dependent repository runs it with `pnpm exec toghen-figma …`, as an npm script. It replaces the earlier `toghen-components`. Relative paths are resolved against the directory it runs in, `process.cwd()`: where it was typed, with `pnpm exec`; in an npm script, the package's folder, or the folder the script changes to first. `INIT_CWD` is not read.
 
 ```
 toghen-figma variables <entry.json>… [--name <name>] [--overrides <map.json>] [--collection <name>] [--dry-run] [--allow-breaking] [--overwrite-drift] [--verbose] [--figcraft <port> | --figcraft-file <path.figcraft>]

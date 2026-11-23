@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,5 +70,32 @@ describe('the command', () => {
     assert.equal(run.status, 1);
     assert.match(run.stderr, /^missing\.component\.kdl cannot be read: /m);
     assert.equal(run.stdout, '');
+  });
+
+  it('reads paths from the directory it runs in, not the one a package manager was started in', () => {
+    // A script that changes directory first: `cd design && toghen-figma check …`, which pnpm starts with INIT_CWD at the root.
+    const root = mkdtempSync(join(tmpdir(), 'toghen-cwd-'));
+    const design = join(root, 'design');
+    mkdirSync(design);
+    writeFileSync(
+      join(design, 'base.tokens.json'),
+      JSON.stringify({ surface: { $type: 'color', $value: { colorSpace: 'srgb', components: [0.96, 0.97, 1] } } }),
+    );
+    writeFileSync(
+      join(design, 'ds.resolver.json'),
+      JSON.stringify({
+        version: '2025-11-01',
+        name: 'Tokens',
+        sets: { base: { sources: [{ $ref: './base.tokens.json' }] } },
+        resolutionOrder: [{ $ref: '#/sets/base' }],
+      }),
+    );
+    writeFileSync(join(design, 'card.component.kdl'), 'component Card\n\nFRAME Card layoutMode=VERTICAL {\n    fills "{surface}"\n}\n');
+    const run = spawnSync(
+      process.execPath,
+      [fileURLToPath(new URL('../../cli/bin.mjs', import.meta.url)), 'check', 'ds.resolver.json', 'card.component.kdl'],
+      { encoding: 'utf8', cwd: design, env: { ...process.env, INIT_CWD: root } },
+    );
+    assert.equal(run.status, 0, run.stderr);
   });
 });
