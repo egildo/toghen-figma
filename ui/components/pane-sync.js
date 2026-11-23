@@ -18,26 +18,35 @@ import { inspectIfShowing } from '../inspect.js';
 /* ── What the file says about drift ───────────────────────────────────── */
 
 /**
- * How many paths drifted, according to whichever check looked most recently.
+ * How many paths drifted, according to the checks that looked at them.
  *
- * Two things can answer: a sync plan, and the Tokens pane. Taking the more
- * recent of the two, and naming it, is the guard against two regions of one
- * screen making different claims about the same file with neither saying when
- * it looked (R11). `null` means nothing here knows, which is not zero.
+ * Three things can answer: a variable plan and the Tokens pane, which compare
+ * the variables, and a style plan, which compares the styles. Of two checks of
+ * the same tokens the more recent answers; checks of different tokens answer
+ * together, so a style plan that found nothing never clears a drifted variable
+ * (R11). The source names each check that answers, and `of` names what an
+ * all-clear covers when that is the styles alone. `null` means nothing here
+ * knows, which is not zero.
  */
 export function driftKnownFrom(state) {
-  const looks = [];
+  const latest = {};
+  const look = (covers, at, count, source) => {
+    if (!latest[covers] || at > latest[covers].at) latest[covers] = { at, count, source };
+  };
   const plan = state.plan;
-  if (plan && (plan.planType === 'variable_sync' || plan.planType === 'style_sync')) {
-    looks.push({ at: state.planAt ?? '', count: plan.summary?.drifted ?? 0, source: 'planned' });
-  }
-  if (state.inspection) {
-    looks.push({ at: state.inspection.checkedAt, count: state.inspection.counts?.drifted ?? 0, source: 'inspected' });
-  }
-  if (looks.length === 0) return null;
   // ISO-8601 UTC strings compare correctly as strings.
-  const latest = looks.reduce((newest, look) => (look.at > newest.at ? look : newest));
-  return { count: latest.count, source: `${latest.source} ${formatClock(latest.at)}`.trim() };
+  if (state.inspection) look('variables', state.inspection.checkedAt, state.inspection.counts?.drifted ?? 0, 'inspected');
+  if (plan?.planType === 'variable_sync') look('variables', state.planAt ?? '', plan.summary?.drifted ?? 0, 'planned');
+  if (plan?.planType === 'style_sync') look('styles', state.planAt ?? '', plan.summary?.drifted ?? 0, 'planned');
+  const looks = Object.values(latest);
+  if (looks.length === 0) return null;
+  // A check that found drift is the stronger answer; one that found none did not look at those tokens.
+  const found = looks.filter((one) => one.count);
+  return {
+    count: found.reduce((sum, one) => sum + one.count, 0),
+    source: (found.length ? found : looks).map((one) => `${one.source} ${formatClock(one.at)}`.trim()).join(', '),
+    of: !found.length && !latest.variables ? 'styles' : null,
+  };
 }
 
 /**
@@ -102,7 +111,7 @@ function syncLine(state) {
     );
   } else if (drift) {
     // The one all-clear the pane gives, earned by something having just looked.
-    parts.push(`no drift <span class="faint">(${escHtml(drift.source)})</span>`);
+    parts.push(`no drift${drift.of ? ` in ${drift.of}` : ''} <span class="faint">(${escHtml(drift.source)})</span>`);
   }
   return row(dot(drift?.count ? 'drifted' : 'none'), `<span>${parts.join(' · ')}</span>`);
 }

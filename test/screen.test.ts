@@ -80,3 +80,40 @@ describe('text in an attribute is escaped for an attribute', () => {
     assert.match(popover.html, /Drifted in dark &amp; dim</);
   });
 });
+
+describe('the drift note claims only what a check covering those tokens found (R11)', () => {
+  it('a style plan that found none does not clear the variables the Tokens pane found drifted', () => {
+    const s = loaded({ inspection: lookedAt('10:00', 2), plan: planOf('style_sync', 0), planAt: at('10:05') });
+    const drift = sync.driftKnownFrom(s);
+    assert.equal(drift.count, 2);
+    assert.match(drift.source, /^inspected /);
+    const line = syncLineOf(draw('tg-pane-sync', s));
+    assert.match(line, /2 drifted \(inspected [^)]+\)/);
+    assert.doesNotMatch(line, /no drift/);
+  });
+
+  it('a style plan and a look that both found drift are both counted, and both named', () => {
+    const drift = sync.driftKnownFrom(loaded({ inspection: lookedAt('10:00', 2), plan: planOf('style_sync', 1), planAt: at('10:05') }));
+    assert.equal(drift.count, 3);
+    assert.match(drift.source, /^inspected .+, planned /);
+  });
+
+  it('a style plan alone clears only the styles, and says so', () => {
+    const s = loaded({ plan: planOf('style_sync', 0), planAt: at('10:05') });
+    const line = syncLineOf(draw('tg-pane-sync', s));
+    assert.match(line, /no drift in styles \(planned [^)]+\)/);
+  });
+
+  it('a variable plan and the look check the same tokens, so the more recent one answers', () => {
+    const newer = sync.driftKnownFrom(loaded({ inspection: lookedAt('10:00', 2), plan: planOf('variable_sync', 0), planAt: at('10:05') }));
+    assert.equal(newer.count, 0);
+    assert.match(newer.source, /^planned /);
+    const line = syncLineOf(draw('tg-pane-sync', loaded({ inspection: lookedAt('10:00', 0) })));
+    assert.match(line, /no drift \(inspected [^)]+\)/);
+    assert.doesNotMatch(line, /in styles/);
+  });
+
+  it('nothing looked: no note at all', () => {
+    assert.equal(sync.driftKnownFrom(loaded({})), null);
+  });
+});
