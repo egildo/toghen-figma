@@ -13,6 +13,7 @@ import { countOf, escAttr, escHtml, formatClock, monogram } from '../format.js';
 import { send } from '../commandBus.js';
 import { getState, setState } from '../state.js';
 import { openPopover } from './popover.js';
+import { tokenModel, worseDot } from './pane-tokens.js';
 import { inspectIfShowing } from '../inspect.js';
 
 /* ── What the file says about drift ───────────────────────────────────── */
@@ -50,19 +51,18 @@ export function driftKnownFrom(state) {
 }
 
 /**
- * The worst state among the tokens a collection holds, from the last picture.
- * Drift outranks absence: a drifted value is someone's edit a sync would not
- * take, an absent one is work a sync will do.
+ * The worst dot among the tokens a collection holds, from the last picture,
+ * each read as the Tokens pane reads it, so a token nothing compared (an
+ * adopted variable, one not inspected) is never folded into "looked, and
+ * agrees" (R16).
  */
 function collectionDot(state, name) {
   if (!state.inspection) return 'unread';
-  let worst = 'none';
-  for (const token of state.inspection.tokens) {
-    if (!token.modes.some((mode) => mode.mode.startsWith(`${name} / `))) continue;
-    if (token.state === 'drifted' || token.state === 'outdated') return 'drifted';
-    if (token.state === 'absent') worst = 'absent';
+  let dot = 'none';
+  for (const token of tokenModel(state).byPath.values()) {
+    if (token.report?.modes.some((mode) => mode.mode.startsWith(`${name} / `))) dot = worseDot(dot, token.dot);
   }
-  return worst;
+  return dot;
 }
 
 /**

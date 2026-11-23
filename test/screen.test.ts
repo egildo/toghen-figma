@@ -117,3 +117,27 @@ describe('the drift note claims only what a check covering those tokens found (R
     assert.equal(sync.driftKnownFrom(loaded({})), null);
   });
 });
+
+describe("a collection's dot reads every state the Tokens pane reads, the same way (R16)", () => {
+  const collectionDot = (tokenState: string) => {
+    const s = loaded({
+      inspection: { checkedAt: at('10:00'), collectionName: 'ds', counts: {}, tokens: [report('ds.color.a', tokenState)] },
+      docCollections: [{ name: 'ds', modes: ['light'], variableCount: 1 }],
+      figmaCollections: [{ id: '1', name: 'ds', modes: [], variableCount: 1 }],
+    });
+    const table = draw('tg-pane-sync', s).match(/<table class="tg-table collections">.*?<\/table>/)?.[0] ?? '';
+    const dot = table.match(/<tg-dot(?: data-state="([a-z]+)")?/)?.[1] ?? 'none';
+    return { dot, pane: tokens.tokenModel({ ...s, tokenGraph: null }).byPath.get('ds.color.a').dot };
+  };
+
+  for (const tokenState of ['current', 'drifted', 'outdated', 'absent', 'blocked', 'adopted', 'not_inspected']) {
+    it(tokenState, () => {
+      const { dot, pane } = collectionDot(tokenState);
+      assert.equal(dot, pane);
+    });
+  }
+
+  it('an adopted token is not "looked, and agrees"', () => {
+    assert.equal(collectionDot('adopted').dot, 'unread');
+  });
+});

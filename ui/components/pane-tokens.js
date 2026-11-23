@@ -30,9 +30,9 @@ const PANEL = 300;
 /** In place, the open token's column needs this much to show its detail. */
 const OPEN_COLUMN = 300;
 
-/** How much a dot outranks another, for a group's worst. Drift first: someone's edit. */
+/** How much a dot outranks another, for a group's or a collection's worst. Drift first: someone's edit. */
 const RANK = { none: 0, unread: 1, upstream: 2, absent: 3, drifted: 4 };
-const worse = (a, b) => (RANK[b] > RANK[a] ? b : a);
+export const worseDot = (a, b) => (RANK[b] > RANK[a] ? b : a);
 
 /** The states that want a person to look. `not_inspected` is an admission, not a fault. */
 const ATTENTION = new Set(['drifted', 'outdated', 'absent', 'adopted', 'blocked']);
@@ -121,12 +121,12 @@ function buildTree(tokens) {
       total(child);
       node.count += child.count;
       node.unread += child.unread;
-      node.worst = worse(node.worst, child.worst);
+      node.worst = worseDot(node.worst, child.worst);
     }
     for (const token of node.tokens) {
       node.count += 1;
       if (token.dot === 'unread') node.unread += 1;
-      node.worst = worse(node.worst, token.dot);
+      node.worst = worseDot(node.worst, token.dot);
     }
   };
   total(root);
