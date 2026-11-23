@@ -150,6 +150,28 @@ describe('a library run into FigCraft', () => {
     }
   });
 
+  it('says the library was saved only once the save is done', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    try {
+      fake.refuse = 'file.save';
+      const result = await command([
+        'sync',
+        'fixtures/sample.resolver.json',
+        ...COMPONENTS,
+        '--figcraft',
+        String(fake.port),
+        '--library',
+        join(folder, 'unsaved.figcraft'),
+      ]);
+      assert.equal(result.code, 1);
+      assert.match(result.stderr, /refused file\.save/);
+      assert.doesNotMatch(result.stdout, /saved it/);
+      assert.deepEqual(lockIn(fake, 0).libraries, {}, 'no lock for a library that was not saved');
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('lock enables a library published by hand, accepts its updates and writes the lock, building nothing', async () => {
     const fake = await startFakeFigcraft(['target']);
     try {
