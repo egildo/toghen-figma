@@ -9,18 +9,18 @@
     "build": "node build.mjs",
     "build:dist": "node build.mjs",
     "build:dist:prod": "NODE_ENV=production node build.mjs",
-    "build:watch": "node build.mjs --watch",
+    "build:watch": "node --watch-path=ui --watch-path=main --watch-path=shared --watch-path=manifest.json build.mjs",
     "preview": "node scripts/preview.mjs",
     "typecheck": "tsc -p tsconfig.plugin.json && tsc -p tsconfig.test.json",
     "expectations": "tsx scripts/expectation-sheet.ts",
-    "components": "node cli/bin.mjs components",
-    "toghen-figma": "node cli/bin.mjs",
+    "components": "cd \"$INIT_CWD\" && node \"$PNPM_SCRIPT_SRC_DIR/cli/bin.mjs\" components",
+    "toghen-figma": "cd \"$INIT_CWD\" && node \"$PNPM_SCRIPT_SRC_DIR/cli/bin.mjs\"",
     "pretest": "pnpm typecheck",
     "test": "node --import tsx/esm --test 'test/**/*.test.ts'",
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "biome check . && pnpm typecheck && pnpm test && pnpm build && node scripts/check-purity.mjs && node scripts/check-leaks.mjs",
-    "prepack": "node build.mjs"
+    "prepack": "pnpm check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

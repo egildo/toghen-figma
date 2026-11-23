@@ -71,7 +71,7 @@ describe('a headless run into a .figcraft file', () => {
   it('opens the file, writes every request into it, saves it, and plans nothing on a second run', async () => {
     const first = await sync();
     assert.equal(first.code, 0, first.stderr);
-    assert.match(first.stdout, /Writing into .*design\.figcraft headless, with figcraft-cli 0\.10\.0/);
+    assert.match(first.stdout, /Writing into .*design\.figcraft headless, with figcraft-cli 0\.18\.1/);
     assert.match(first.stdout, /Button: 1 step · 2 created/);
     assert.match(first.stdout, new RegExp(`Saved ${file}\\.`));
 
@@ -146,6 +146,26 @@ describe('a headless run into a .figcraft file', () => {
     assert.equal(result.code, 1);
     assert.match(result.stderr, /design\.figcraft was not saved: the run did not complete/);
     assert.ok(!calls().some((call) => call.tool === 'save_file'));
+  });
+
+  it('refuses a file, or a library, in a folder that is not there, before it starts figcraft-cli', async () => {
+    const missing = join(folder, 'missing');
+    for (const argv of [
+      ['sync', 'fixtures/sample.resolver.json', ...FILES, '--figcraft-file', join(missing, 'design.figcraft')],
+      ['sync', 'fixtures/sample.resolver.json', ...FILES, '--figcraft-file', file, '--library', join(missing, 'ds.figcraft')],
+    ]) {
+      let stderr = '';
+      const code = await main(argv, {
+        cwd: here,
+        readFile: (path) => readFileSync(path, 'utf8'),
+        stdout: () => {},
+        stderr: (text) => (stderr += text),
+        pairingFile: join(here, 'never-written'),
+      });
+      assert.equal(code, 1);
+      assert.match(stderr, new RegExp(`the folder ${missing} does not exist, so the run could not save .* there; nothing was written`));
+      assert.deepEqual(calls(), []);
+    }
   });
 
   it('refuses a figcraft-cli older than 0.8.0, whose node.get does not report the stamps', async () => {

@@ -162,7 +162,15 @@ export async function serve<R extends string>(port: number, codes: Record<R, str
           return;
         }
         mine = found;
-        found.plugin?.close(REPLACED, 'another connection paired');
+        if (found.plugin) {
+          // The window replaced will not answer: what it was asked is refused now, rather than waited for.
+          found.onGone?.(
+            new PluginGone(
+              'another plugin window paired with the same code and took the place of the one answering, so its answer will not come',
+            ),
+          );
+          found.plugin.close(REPLACED, 'another connection paired');
+        }
         found.plugin = socket;
         socket.send(JSON.stringify({ paired: true }));
         found.markPaired();

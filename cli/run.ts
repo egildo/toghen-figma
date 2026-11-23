@@ -11,7 +11,8 @@
  * lock (`copyKeys`).
  */
 
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { load, Resolver, type ResolverDocument } from '@toghen/lib';
 import { namesOfFiles } from '../main/components/file.js';
 import { declaredLibraries } from '../main/components/resolve.js';
@@ -333,6 +334,19 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
     }
   }
   if (unreadable) return 1;
+  // A FigCraft file the run saves at its end, the target headless and a library it builds, is saved into a folder that
+  // must be there already: found missing only at the save, it would lose the whole run.
+  const builds = (args.figcraft !== undefined || args.figcraftFile !== undefined) && (args.entry !== undefined || args.files.length > 0);
+  for (const [flag, file] of [
+    ['--figcraft-file', args.figcraftFile],
+    ['--library', builds ? args.library : undefined],
+  ]) {
+    const folder = file === undefined ? undefined : dirname(resolve(io.cwd, file));
+    if (folder !== undefined && !existsSync(folder)) {
+      io.stderr(`${flag} ${file}: the folder ${folder} does not exist, so the run could not save the file there; nothing was written\n`);
+      return 1;
+    }
+  }
 
   // 2. Wait for the plugin, or both with a library, or reach FigCraft, which needs no plugin.
   let bridge: Bridge;
@@ -359,7 +373,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (args.library !== undefined) {
         const path = resolve(io.cwd, args.library);
         figcraft = { target: opened, path };
-        if (opened.pin.tab.path === path)
+        if (opened.pin.path === path)
           throw new Error(`The target is the library ${args.library} itself: show, or name, the file that uses it.`);
         // `lock` builds nothing, so it needs only the target; a build happens in the library file.
         if (args.entry !== undefined || args.files.length > 0) {
@@ -427,7 +441,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (figcraft.library) {
         await figcraft.library.close();
         // A file the run made and did not save is not left behind as an empty tab.
-        if (figcraft.library.made && figcraft.library.pin.tab.path === null)
+        if (figcraft.library.made && figcraft.library.pin.path === undefined)
           await closeTab(figcraft.target.control, figcraft.library.pin).catch(() => {});
       }
       await figcraft.target.close();
@@ -557,6 +571,17 @@ async function runSteps(
   }
 
   const planned: Operation[] = [];
+  // A dry run writes nothing, so what the plans before a step would have made is told to it: the style plan, then each
+  // component run. The file's collections are read once, for the names of those the plans do not create.
+  let collections: { id: string; name: string }[] | undefined;
+  const pendingOf = async (operations: readonly Operation[]): Promise<Pending | undefined> => {
+    if (!collections) {
+      const listed = await ask({ type: 'GET_FIGMA_COLLECTIONS', payload: {} }, 'FIGMA_COLLECTIONS');
+      if (listed.type !== 'FIGMA_COLLECTIONS') return undefined;
+      collections = listed.payload;
+    }
+    return pendingNames(operations, collections);
+  };
   if (source && args.entry !== undefined) {
     // 4. The variables.
     // Both plans are given the same collection name: the style plan binds a style's members to the variables the variable plan put there.
@@ -582,7 +607,11 @@ async function runSteps(
       },
     ];
     for (const step of steps) {
-      const response = await ask(step.plan, 'PLAN_READY');
+      const plan: Command =
+        args.dryRun && step.plan.type === 'PLAN_STYLE_SYNC'
+          ? { type: 'PLAN_STYLE_SYNC', payload: { ...step.plan.payload, pending: await pendingOf(planned) } }
+          : step.plan;
+      const response = await ask(plan, 'PLAN_READY');
       if (response.type !== 'PLAN_READY') continue;
       describePlan(step.label, response.payload, io, args.verbose === true);
       planned.push(...response.payload.operations);
@@ -621,12 +650,8 @@ async function runSteps(
     }
   }
 
-  // A dry run writes nothing, so what the plans would have made is told to each component run.
   let pending: Pending | undefined;
-  if (args.dryRun && args.entry !== undefined) {
-    const collections = await ask({ type: 'GET_FIGMA_COLLECTIONS', payload: {} }, 'FIGMA_COLLECTIONS');
-    if (collections.type === 'FIGMA_COLLECTIONS') pending = pendingNames(planned, collections.payload);
-  }
+  if (args.dryRun && args.entry !== undefined) pending = await pendingOf(planned);
 
   // 6. Each component file, one at a time. A dry run tells each the sets the files before it would create (ruling 7a).
   let exit = 0;
@@ -661,17 +686,16 @@ async function runSteps(
       }
       if (report.dryRun && report.steps.some((step) => step.kind === 'CREATE_SET')) created.push(name);
       // A dry run applies nothing, so what it would do is counted from its steps, as the real run would count it: for a set,
-      // the members a write step names; for an artboard, the layers it would make, patch or swap, and remove.
+      // the members it would make, write to and delete; for an artboard, the layers it would make, patch or swap, and remove.
       const of = (...kinds: string[]) => report.steps.filter((step) => kinds.includes(step.kind));
-      const counts =
-        report.dryRun && report.artboard
+      const counts = !report.dryRun
+        ? `${report.created.length} created · ${report.updated.length} updated · ${report.deleted.length} deleted`
+        : report.artboard
           ? `${of('CREATE_ARTBOARD').reduce((sum, step) => sum + (step.layers ?? 0), 0) + of('CREATE_LAYER', 'REPLACE_LAYER').length} would create · ` +
             `${new Set(of('PATCH_LAYER', 'SWAP_COMPONENT').map((step) => step.address)).size} would update · ${of('DELETE_LAYER').length} would delete`
-          : `${report.created.length} created · ${
-              report.dryRun
-                ? `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update`
-                : `${report.updated.length} updated`
-            } · ${report.deleted.length} deleted`;
+          : `${of('CREATE_SET').reduce((sum, step) => sum + (step.members ?? 0), 0) + of('CREATE_MEMBER').length} would create · ` +
+            `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update · ` +
+            `${of('DELETE_MEMBER').length} would delete`;
       // Fields kept as hand edits, counted: their notes are among the many standing ones and easy to miss.
       const { drifted } = report;
       io.stdout(

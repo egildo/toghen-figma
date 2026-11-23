@@ -268,6 +268,8 @@ Sync styles creates Figma Styles from composite token types.
 
 Figma styles have no modes. A style is therefore built from your document's **default** mode, and the plan warns which modes are not represented; use variables for anything that has to change per mode.
 
+A text style takes its weight from its font style, which is `Regular` unless the token names another in a `fontStyle` member. A `fontWeight` written as a number is not turned into a style name, so the plan says it is not held: `"ds.txt.heading.fontWeight" is 700, which the text style cannot hold: a text style takes its weight from its font style, and the token names none, so the style is "Regular".`
+
 ### Members become bindings
 
 A typography or shadow member that references a token, `"fontSize": "{font.size.md}"` or a shadow layer's `"color": "{color.shade}"`, becomes a **binding** on the style: in Figma the field shows the variable rather than a number, and follows it, including its modes, which the style alone cannot have.
@@ -443,7 +445,7 @@ Every child of the `surface` group is a value of `Tone`, the first child the def
 
 ### A different case or weight is a different text style
 
-A text layer with a `textStyle` takes no `textCase` or weight of its own. Measured in a test file: setting either on a text bound to a text style detaches it from the style, so the style's later edits no longer reach it; the reader refuses a field a text style also sets beside `textStyle`, naming both. A variant that is in capitals, or in a heavier weight, uses **another text style**: make it a typography token (`textTransform: uppercase` becomes the style's case, a heavier `fontWeight` its weight) and switch the layer's style in a `when`:
+A text layer with a `textStyle` takes no `textCase` or weight of its own. Measured in a test file: setting either on a text bound to a text style detaches it from the style, so the style's later edits no longer reach it; the reader refuses a field a text style also sets beside `textStyle`, naming both. A variant that is in capitals, or in a heavier weight, uses **another text style**: make it a typography token (`textTransform: uppercase` becomes the style's case, a heavier weight its `fontStyle`, such as `Bold`) and switch the layer's style in a `when`:
 
 ```kdl
 TEXT Label characters=(property)Label textStyle="{type.label}" {
@@ -793,7 +795,7 @@ The Build pane, which will carry these as buttons, is not built yet; the plugin'
 3. **Pair, the first time.** The command prints a code. In the plugin, in the **Source** card at the foot of the Load pane, type it and press **Connect**; the status bar then shows a green dot and the time. The pairing lasts until the plugin is closed: the next run finds the plugin by itself. After closing the plugin, run it again and type the new code.
 4. **Watch it work.** The command prints the plan for the variables, applies it, does the same for the styles, and then runs each component file. The plugin's Results shows the same plans and outcomes, its header says `from the command line`, and the document the run loaded is now the one on the Load and Sync panes.
 
-- **`--dry-run`** goes through every step and writes nothing. A name a component uses that the sync would create, a variable, a text style or a mode, or a set a file earlier in the run builds, counts as present and is listed as `pending`, so `figma:check` passes where the real run would. A name that nothing would create still stops it. A set's dry run says `N would update`: the members a real run would write to. An artboard's says how many layers the real run would create, update and delete, so a dry run is a freshness check for artboards too. A dry run imports nothing from a library; a library's variable or style an earlier run imported is found in the file and taken, as the real run takes it, so a field bound to it is compared, not planned again.
+- **`--dry-run`** goes through every step and writes nothing. A name a component uses that the sync would create, a variable, a text style or a mode, or a set a file earlier in the run builds, counts as present and is listed as `pending`, so `figma:check` passes where the real run would. A name that nothing would create still stops it. A set's dry run says how many members the real run would create, write to and delete: `Badge (dry run): 3 steps · 1 would create · 0 would update · 1 would delete`. An artboard's says how many layers the real run would create, update and delete, so a dry run is a freshness check for artboards too. A dry run imports nothing from a library; a library's variable or style an earlier run imported is found in the file and taken, as the real run takes it, so a field bound to it is compared, not planned again.
 - **The skips.** A plan prints its skips counted by cause, `Variable plan: 3 creates · 0 updates · 239 skips (180 unchanged · 40 cannot be written · 19 unsupported type)`, then the rows of every cause but `unchanged`, ten per cause and then how many more. **`--verbose`** (`variables`, `components` and `sync`) lists every skip, the unchanged ones too, and every patch of a set with the fields it writes.
 - **`--allow-breaking`** lets a run take steps that break instances elsewhere, and lets the variable sync delete a removed context's mode. Without it a run that would take one stops before writing and lists them; read them in a dry run first.
 - **`--overwrite-drift`** (`variables`, `components` and `sync`) writes the document's value and scopes over every value, every scope list and every style edited in Figma since the last sync, and the file's value over every component or artboard field edited there, instead of leaving them; see [Drift](#drift).
@@ -894,7 +896,7 @@ A `.figcraft` file can be kept in step with no one at the screen. `--figcraft-fi
 ```
 
 1. **Install `figcraft-cli` 0.8.0 or later** on the machine that runs it, the same version as the app you open the file with. An older one is refused: it cannot read back the stamps Toghen keeps in the file. If it is not on the PATH, name it: `FIGCRAFT_CLI=/path/to/figcraft-cli`.
-2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there.
+2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there; a folder that does not exist stops the run before it starts, since the file could not be saved there.
 3. **Commit the saved file**, or keep it as the job's artifact.
 
 In a job, as a step:
@@ -937,7 +939,7 @@ pnpm exec toghen-figma components button.component.kdl --page Components --dry-r
 pnpm exec toghen-figma components *.component.kdl --resolver tokens.resolver.json
 ```
 
-- **Paths** are read from the directory you typed the command in.
+- **Paths** are read from the directory the command runs in: the one you typed it in, with `pnpm exec`; in a script, the package's folder, or the one the script changes to (`cd design && toghen-figma …`).
 - **A file with an error builds nothing.** The plugin checks every file before anything is written, and the command prints each problem as `<file>:<line>:<column> <message>` and exits 1. Warnings are printed the same way, with `warning:` before the message, and do not stop anything.
 - **`--resolver`** loads the design system into the plugin first, for a file whose axes or bindings come from the tokens. Nothing is synced.
 - **`--page <name>`** is the page the set lives on; the current page when absent. **`--dry-run`** plans and writes nothing. **`--allow-breaking`** lets a run take steps that break instances; without it a run that would break any stops before writing.

@@ -1722,4 +1722,95 @@ Released in 0.1.15. Reported against 0.1.14 with `figcraft-cli` 0.10.0, headless
 
 ## Fixed: the stamps were read with a depth figcraft-cli refuses (7 November 2026)
 
-Released in 0.1.16. Found by insufferable's sync against `figcraft-cli` 0.15.1, headless: every run stopped at reading the stamps with `unknown parameter "depth"` in `node.get`. The FigCraft reader asked `node.get` for `depth: 0` on each page (`cli/figcraft.ts`, *readStamps*), a parameter the CLI never honoured, since `node.get` lists one level whatever it is asked, and now refuses. The parameter is gone, and the fake CLI in the tests refuses an unknown `node.get` parameter as the real one does, so the bug put back fails 60 tests. The comment on the page reader says what was measured: one level down, and no depth taken.
+Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, headless: every run stopped at reading the stamps with `unknown parameter "depth"` in `node.get`. The FigCraft reader asked `node.get` for `depth: 0` on each page (`cli/figcraft.ts`, *readStamps*), a parameter the CLI never honoured, since `node.get` lists one level whatever it is asked, and now refuses. The parameter is gone, and the fake CLI in the tests refuses an unknown `node.get` parameter as the real one does, so the bug put back fails 60 tests. The comment on the page reader says what was measured: one level down, and no depth taken.
+
+## Fixed: what the review of 23 November 2026 found (23 November 2026)
+
+**Status:** built; not released yet. The review is house's `.reference/plans/workspace/review-2026-11-23.md`, with the round's plan beside it. Three units worked in parallel: the command line and FigCraft, the engines, and the screen.
+
+**Main was red, and 0.1.16 was published by hand.**
+
+- Since 7 November a formatting error stopped `pnpm check`, and `shared/version.ts` still said 0.1.15.
+- 0.1.16 was published by hand, with no tag, and carries `VERSION = '0.1.15'`.
+- Both are fixed. `prepack` is now the gate, so a hand publish cannot skip it.
+- The publish workflow packs with `--ignore-scripts`, because its gate has just built the package.
+
+### The command line and FigCraft
+
+**Library mode headless.**
+
+- figcraft-cli 0.18.1 lists each open file in `doc.list` with `id`, `index`, `name`, `dirty` and `active`. It gives `path` only to a call that names no agent, and MCP always names one. So with `--figcraft-file --library`, every run failed.
+- Measured headless:
+
+  | Call | Answers |
+  |---|---|
+  | `file.new` | `{index, kind}` |
+  | `file.open` and `open_file` | the tab's `index` |
+  | `file.save` | `{bytes, path}` |
+
+  An open file's `id` stays the same across saves.
+- A run now finds a tab by the index its opening answers, and knows it by its id. It checks a save by what `file.save` answers.
+- `library.list` and `library.add` still give a path to an agent.
+
+**The fake FigCraft is 0.18.1 now.**
+
+- It refuses an unknown parameter on every command, nested batch steps included.
+- It leaves `path` out for an agent.
+- Its save fails on a missing folder.
+- A run checks the folder before it starts.
+
+**No connection waits forever.**
+
+- A headless session gives up after 60 s on `initialize`, and after 10 minutes on any other request. Those are FigCraft's own control-socket limits.
+- A line on standard output that is not JSON ends the session, because MCP's stdio allows nothing else there.
+- Replies are matched by `id`.
+- A plugin window replaced by another with the same code has its pending request refused, and its screen stops pairing again. Before, the two windows took the place from each other every second.
+
+**The working directory.** The command reads paths from `process.cwd()`, not `INIT_CWD`. The package's own scripts change to `INIT_CWD` themselves.
+
+**Smaller fixes.**
+
+- Success is printed after the save it reports.
+- `--help` exits 0.
+- `build:watch` watches.
+- The preview listens on 127.0.0.1 only.
+
+### The engines
+
+- **A paint bound by the executor is given the variable's colour first,** as the field writer gives it (§8). It keeps its own opacity.
+- **A failed update stamps what it wrote.**
+  - It stamps every write before the failure, and the layer being written when it came: that layer's receipt entry is taken before the write.
+  - The set's receipt is taken after the layers'.
+  - The fingerprint is removed, so the next run reads the set whole.
+  - *Rejected:* clearing the fingerprint before every update. It costs two stamp writes on every run.
+- **A new artboard is made whole or not at all,** through the same `orRemoveWhatItMade` a new set uses.
+- **A failed producer blocks what its symbols promised.** The runner takes them from `producedSymbols()`, so it cannot disagree with the plan-time check.
+- **The main thread is a queue.** `CANCEL_OPERATION` and `RESIZE_UI` are the exceptions.
+- **A literal `fontWeight` that a text style cannot hold is warned of, on every plan, 400 included.** No weight is mapped to a style name; that waits on a ruling.
+- **A library component in a fingerprint is named by its key** (§15).
+- **A set's dry run says what the real run would do.**
+  - Its line is `N would create · N would update · N would delete`.
+  - Its style plan is told the variables the run would create. Such a member is planned with no binding, since it has no id yet, so an unbound style the real run would bind can read `unchanged` in the dry run.
+
+### The screen
+
+- **A tooltip's title is escaped as an attribute.**
+- **The drift note compares like with like.**
+  - Three checks can answer it, and they cover two different sets of tokens. "Newer wins" holds only within one set; across sets, the check that found drift wins.
+  - "no drift in styles" is new wording.
+- **The collection dot takes the worst of the Tokens pane's dots.** Drift upstream can now show as an amber ring, and an uninspected token turns it grey.
+- **Cancel leaves the screen busy until the run ends.**
+- **Focus after a redraw.**
+  - A focused control is found again by its tag and identifying attributes.
+  - A disabled control cannot hold focus, so focus on one returns at the redraw that enables it.
+- **The keyboard reaches everything.** The result bar's toggle is a button, the splitter is a separator the arrows move, and the popover takes focus and gives it back.
+- **The screen's modules run in Node under a 60-line shim,** so `update()`, `resultView` and `driftKnownFrom` are tested.
+
+### Noticed, not fixed
+
+- A property someone added by hand, with the name the file declares, is adopted after one real run, since `stampSet` writes every declared name. The reference says "never adopted by name".
+- The FigCraft writer stamps only at the end of an update, so a failure there stamps nothing.
+- A headless dry run right after an unchanged run notes a restack that the real run does not make.
+- `serve(0)` can collide on `::1`, which makes a test flaky.
+- The rulebook's "How it was met" for R11 and R16 describes the old behaviour.
+- The redacted consumer names are still in older commits' history.

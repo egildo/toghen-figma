@@ -13,6 +13,7 @@ import { closedBecause, standingOf } from '../utils/standing.js';
 import { buildSum } from '../utils/sum.js';
 import { referencePath } from '@toghen/lib';
 import { tokenPathToVariableName } from '../utils/tokenPath.js';
+import type { Pending } from '../../shared/components/steps.js';
 
 export interface StylePlanSummary {
   total: number;
@@ -30,6 +31,8 @@ export interface StylePlanSummary {
 export interface StylePlanOptions {
   /** Whether a style changed in Figma since the sync wrote it is written with the document's value, or left alone. */
   overwriteDrift?: boolean;
+  /** A dry run's: the variables the same run's variable plan would create, counted as there. Only `variables` is read. */
+  pending?: Pending;
 }
 
 interface IndexedStyle {
@@ -176,7 +179,9 @@ function meansTheSame(member: string, _value: unknown, props: Record<string, unk
  * A member binds when it is one whole reference (`memberOf`), its field is
  * bindable, the unit rule holds, and the target's variable already exists with
  * the field's type. The style phase runs after the variable phase and cannot
- * create variables, so a missing one is a warning, not a plan step.
+ * create variables, so a missing one is a warning, not a plan step. A variable a
+ * dry run's variable plan would create (`pendingType`) is not missing: the real
+ * run binds it, and the dry run, with no id to bind, says nothing.
  */
 function planBindings(
   path: string,
@@ -184,6 +189,7 @@ function planBindings(
   styleType: 'TEXT' | 'EFFECT' | 'PAINT',
   props: Record<string, unknown>,
   variableFor: (to: string) => IndexedVariable | undefined,
+  pendingType: (to: string) => VariableResolvedDataType | undefined,
 ): { bindings: StyleBinding[]; warnings: string[] } {
   const bindings: StyleBinding[] = [];
   const warnings: string[] = [];
@@ -204,17 +210,19 @@ function planBindings(
     if (!spec) continue;
 
     const variable = variableFor(to);
-    if (!variable) {
+    const type = variable?.resolvedType ?? pendingType(to);
+    if (!type) {
       warnings.push(`"${path}.${at}" refers to "${to}", which has no variable yet; sync variables first, then styles, to bind it.`);
       continue;
     }
-    if (variable.resolvedType !== spec.type) {
+    if (type !== spec.type) {
       warnings.push(
-        `"${path}.${at}" refers to "${to}", but that variable is ${variable.resolvedType} and the field ` +
+        `"${path}.${at}" refers to "${to}", but that variable is ${type} and the field ` +
           `takes ${spec.type}, so the value is written instead of a binding.`,
       );
       continue;
     }
+    if (!variable) continue;
 
     bindings.push({ field: spec.field, variableId: variable.id, ...(index !== undefined ? { index } : {}) });
   }
@@ -287,6 +295,12 @@ export class StyleSyncEngine {
       );
     };
 
+    // A variable the dry run's variable plan would create for the target, by the head's collection and name.
+    const pendingType = (to: string): VariableResolvedDataType | undefined => {
+      const head = sum.tokenByPath.get(to)?.variables[0];
+      return head && options.pending?.variables.find((v) => v.collection === head.collection && v.name === head.name)?.type;
+    };
+
     // Read at the first text style, once: a plan without one never asks.
     let listed: Awaited<ReturnType<typeof listFonts>> | undefined;
 
@@ -354,9 +368,19 @@ export class StyleSyncEngine {
           props.fontFamily = choice.family;
           operations.push({ kind: 'WARNING', message: fallbackNote(path, choice), path });
         }
+        // A literal weight is not mapped to a style name (decisions, *A font stack is a fallback in Figma too*): it is said.
+        const { fontWeight, fontStyle } = token.value as Record<string, unknown>;
+        if (fontWeight !== undefined && fontStyle === undefined && token.memberOf?.fontWeight === undefined)
+          operations.push({
+            kind: 'WARNING',
+            message:
+              `"${path}.fontWeight" is ${String(fontWeight)}, which the text style cannot hold: a text style takes its weight ` +
+              `from its font style, and the token names none, so the style is "${String(props.fontStyle)}".`,
+            path,
+          });
       }
 
-      const { bindings, warnings } = planBindings(path, token, route.styleType, props, variableFor);
+      const { bindings, warnings } = planBindings(path, token, route.styleType, props, variableFor, pendingType);
       for (const message of warnings) {
         operations.push({ kind: 'WARNING', message, path });
       }

@@ -87,6 +87,24 @@ function pageOf(node: BaseNode): PageNode {
   return up;
 }
 
+/**
+ * Runs an update's writes, and when one fails stamps what those before it wrote before the error goes on. A plugin has no
+ * rollback: what was written stays, and stamped, the next run reads it as Toghen's rather than as an edit by hand, and
+ * finishes the rest.
+ */
+async function orStampWhatItWrote(writes: () => Promise<void>, stamp: () => Promise<void>): Promise<void> {
+  try {
+    await writes();
+  } catch (error) {
+    try {
+      await stamp();
+    } catch (_unread) {
+      // Stamping is for the next run; the step's own error is the one to report.
+    }
+    throw error;
+  }
+}
+
 export async function applyUpdate(setId: string, steps: Step[], desired: Desired, resolved: Resolved): Promise<Updated> {
   const result: Updated = { created: [], updated: [], deleted: [], warnings: [] };
   const spec = desired.component;
@@ -143,116 +161,121 @@ export async function applyUpdate(setId: string, steps: Step[], desired: Desired
     members: desired.members as Member[],
   };
 
-  for (const step of steps) {
-    switch (step.kind) {
-      case 'ADD_PROPERTY': {
-        const property = step.property;
-        if (property.type === 'BOOLEAN' || property.type === 'TEXT')
-          set.addComponentProperty(property.name, property.type, defaultOf(resolved, property));
-        else if (property.type === 'INSTANCE_SWAP')
-          set.addComponentProperty(property.name, 'INSTANCE_SWAP', resolved.component(property.default).id);
-        break;
-      }
-
-      case 'EDIT_PROPERTY': {
-        const property = step.property;
-        const key = findKey(set.componentPropertyDefinitions, property.type, property.name);
-        if (key === undefined) break;
-        const edit: Parameters<ComponentSetNode['editComponentProperty']>[1] = {};
-        for (const change of step.changes) {
-          if (change === 'defaultValue' && property.type === 'INSTANCE_SWAP') edit.defaultValue = resolved.component(property.default).id;
-          else if (change === 'defaultValue' && (property.type === 'BOOLEAN' || property.type === 'TEXT'))
-            edit.defaultValue = defaultOf(resolved, property);
-          else if (change === 'preferredValues' && (property.type === 'INSTANCE_SWAP' || property.type === 'SLOT'))
-            edit.preferredValues = keyedPreferred(property.preferredValues ?? []);
-          else if (change === 'description' && property.type === 'SLOT') edit.description = property.description ?? '';
-          else if (change === 'slotSettings' && property.type === 'SLOT') edit.slotSettings = property.slotSettings ?? {};
+  // Last: what Figma reports once every step is in, or once one has failed.
+  const stamp = async (): Promise<void> => {
+    await stampReceipts(written);
+    stampSet(set, spec);
+  };
+  await orStampWhatItWrote(async () => {
+    for (const step of steps) {
+      switch (step.kind) {
+        case 'ADD_PROPERTY': {
+          const property = step.property;
+          if (property.type === 'BOOLEAN' || property.type === 'TEXT')
+            set.addComponentProperty(property.name, property.type, defaultOf(resolved, property));
+          else if (property.type === 'INSTANCE_SWAP')
+            set.addComponentProperty(property.name, 'INSTANCE_SWAP', resolved.component(property.default).id);
+          break;
         }
-        set.editComponentProperty(key, edit);
-        break;
-      }
 
-      case 'DELETE_PROPERTY': {
-        const definitions = set.componentPropertyDefinitions;
-        const key = Object.keys(definitions).find((k) => definitions[k].type !== 'VARIANT' && nameOf(k) === step.name);
-        if (key !== undefined) set.deleteComponentProperty(key);
-        break;
-      }
-
-      case 'RENAME_AXIS': {
-        // Measured (measured in a real file through use_figma, 2026-10-14): one call renames the axis in every member's name and keeps each node and each instance's value; shared plugin data does not follow.
-        set.editComponentProperty(step.from, { name: step.to });
-        for (const child of set.children) {
-          const stamped = child.type === 'COMPONENT' && !copies.has(child) ? stampOn(child)?.is.member : undefined;
-          const renamed = stamped === undefined ? undefined : renameAxis(stamped, step.from, step.to);
-          if (renamed !== undefined) updateStamp(child, { is: { member: renamed } });
+        case 'EDIT_PROPERTY': {
+          const property = step.property;
+          const key = findKey(set.componentPropertyDefinitions, property.type, property.name);
+          if (key === undefined) break;
+          const edit: Parameters<ComponentSetNode['editComponentProperty']>[1] = {};
+          for (const change of step.changes) {
+            if (change === 'defaultValue' && property.type === 'INSTANCE_SWAP') edit.defaultValue = resolved.component(property.default).id;
+            else if (change === 'defaultValue' && (property.type === 'BOOLEAN' || property.type === 'TEXT'))
+              edit.defaultValue = defaultOf(resolved, property);
+            else if (change === 'preferredValues' && (property.type === 'INSTANCE_SWAP' || property.type === 'SLOT'))
+              edit.preferredValues = keyedPreferred(property.preferredValues ?? []);
+            else if (change === 'description' && property.type === 'SLOT') edit.description = property.description ?? '';
+            else if (change === 'slotSettings' && property.type === 'SLOT') edit.slotSettings = property.slotSettings ?? {};
+          }
+          set.editComponentProperty(key, edit);
+          break;
         }
-        break;
-      }
 
-      case 'CREATE_MEMBER': {
-        // All the new members at the first of these steps: built away from the set, appended together, then wired. Once one
-        // is in, the set may disagree with itself on axes (Figma then refuses to be read) until the old members are deleted.
-        // Measured (measured in a real file through use_figma, 2026-09-29): appending is enough; the new member's slots join the set's properties, and its
-        // layers take the set's keys. It is built with no properties of its own and wired after it is in.
-        if (keys) break;
-        keys = keysOf(set);
-        // A failure removes every member this step made, appended or not, and what it left loose on the page, before it goes on.
-        const created: ComponentNode[] = [];
-        await orRemoveWhatItMade(pageOf(set), created, async () => {
-          const made: { node: ComponentNode; own: Build }[] = [];
-          for (const { member: file } of steps.filter((s): s is Extract<Step, { kind: 'CREATE_MEMBER' }> => s.kind === 'CREATE_MEMBER')) {
-            const node = figma.createComponent();
-            created.push(node);
-            node.name = file.name;
-            const own: Build = { ...build(node), host: node, deferred: [] };
-            stampNew(own, node, file.tree, { member: file.name });
-            await applyFields(own, node, file.tree, true);
-            await buildChildren(own, node, file.tree);
-            made.push({ node, own });
+        case 'DELETE_PROPERTY': {
+          const definitions = set.componentPropertyDefinitions;
+          const key = Object.keys(definitions).find((k) => definitions[k].type !== 'VARIANT' && nameOf(k) === step.name);
+          if (key !== undefined) set.deleteComponentProperty(key);
+          break;
+        }
+
+        case 'RENAME_AXIS': {
+          // Measured (measured in a real file through use_figma, 2026-10-14): one call renames the axis in every member's name and keeps each node and each instance's value; shared plugin data does not follow.
+          set.editComponentProperty(step.from, { name: step.to });
+          for (const child of set.children) {
+            const stamped = child.type === 'COMPONENT' && !copies.has(child) ? stampOn(child)?.is.member : undefined;
+            const renamed = stamped === undefined ? undefined : renameAxis(stamped, step.from, step.to);
+            if (renamed !== undefined) updateStamp(child, { is: { member: renamed } });
           }
-          for (const { node } of made) set.appendChild(node);
-          for (const { node, own } of made) {
-            for (const assign of own.deferred!) assign();
-            result.created.push(node.name);
-          }
-        });
-        break;
+          break;
+        }
+
+        case 'CREATE_MEMBER': {
+          // All the new members at the first of these steps: built away from the set, appended together, then wired. Once one
+          // is in, the set may disagree with itself on axes (Figma then refuses to be read) until the old members are deleted.
+          // Measured (measured in a real file through use_figma, 2026-09-29): appending is enough; the new member's slots join the set's properties, and its
+          // layers take the set's keys. It is built with no properties of its own and wired after it is in.
+          if (keys) break;
+          keys = keysOf(set);
+          // A failure removes every member this step made, appended or not, and what it left loose on the page, before it goes on.
+          const created: ComponentNode[] = [];
+          await orRemoveWhatItMade(pageOf(set), created, async () => {
+            const made: { node: ComponentNode; own: Build }[] = [];
+            for (const { member: file } of steps.filter((s): s is Extract<Step, { kind: 'CREATE_MEMBER' }> => s.kind === 'CREATE_MEMBER')) {
+              const node = figma.createComponent();
+              created.push(node);
+              node.name = file.name;
+              const own: Build = { ...build(node), host: node, deferred: [] };
+              stampNew(own, node, file.tree, { member: file.name });
+              await applyFields(own, node, file.tree, true);
+              await buildChildren(own, node, file.tree);
+              made.push({ node, own });
+            }
+            for (const { node } of made) set.appendChild(node);
+            for (const { node, own } of made) {
+              for (const assign of own.deferred!) assign();
+              result.created.push(node.name);
+            }
+          });
+          break;
+        }
+
+        case 'DELETE_MEMBER': {
+          const gone = await figma.getNodeByIdAsync(step.memberId);
+          if (gone) gone.remove();
+          await stripNodes(step.strip);
+          result.deleted.push(step.name);
+          break;
+        }
+
+        case 'CREATE_LAYER':
+        case 'REPLACE_LAYER':
+        case 'MOVE_LAYER':
+        case 'PATCH_LAYER':
+        case 'SWAP_COMPONENT':
+        case 'DELETE_LAYER':
+          if (await applyLayerStep(step, layerContext)) madeSlot = true;
+          break;
+
+        case 'RELAYOUT': {
+          placeMembers(set, desired.members as Member[], spec, copies);
+          break;
+        }
+
+        default:
+          break;
       }
-
-      case 'DELETE_MEMBER': {
-        const gone = await figma.getNodeByIdAsync(step.memberId);
-        if (gone) gone.remove();
-        await stripNodes(step.strip);
-        result.deleted.push(step.name);
-        break;
-      }
-
-      case 'CREATE_LAYER':
-      case 'REPLACE_LAYER':
-      case 'MOVE_LAYER':
-      case 'PATCH_LAYER':
-      case 'SWAP_COMPONENT':
-      case 'DELETE_LAYER':
-        if (await applyLayerStep(step, layerContext)) madeSlot = true;
-        break;
-
-      case 'RELAYOUT': {
-        placeMembers(set, desired.members as Member[], spec, copies);
-        break;
-      }
-
-      default:
-        break;
     }
-  }
 
-  if (spec.description !== undefined) set.description = spec.description;
-  // A slot the run made has its property's description and settings still to take.
-  if (madeSlot) editProperties(set, spec);
-  // Last: what Figma reports once every step is in.
-  stampSet(set, spec);
-  await stampReceipts(written);
+    if (spec.description !== undefined) set.description = spec.description;
+    // A slot the run made has its property's description and settings still to take.
+    if (madeSlot) editProperties(set, spec);
+  }, stamp);
+  await stamp();
   result.updated.push(...updated);
   return result;
 }
@@ -372,12 +395,12 @@ async function applyLayerStep(step: Step, context: LayerContext): Promise<boolea
       if (!node) throw new Error(`member "${step.member}": the layer "${step.layer.address}" is no longer in the file`);
       const b = build(owner);
       const only = withResets(step.layer, step.fields);
+      // Its receipt follows once the run's writes are done, or once one fails: one the file stopped declaring was reported and leaves it.
+      b.written.push({ node: node as SceneNode, layer: step.layer, fields: [...only, ...(step.restamp ?? [])] });
       await settle(b, node as SceneNode, step.layer, layers, only);
       await applyFields(b, node as SceneNode, step.layer, root, only);
       // A layer a designer renamed is still found by stamp, and gets the file's name back.
       node.name = root && !artboard ? step.member : nameOfLayer(step.layer);
-      // Its receipt follows once the run's writes are done: one the file stopped declaring was reported and leaves it.
-      b.written.push({ node: node as SceneNode, layer: step.layer, fields: [...only, ...(step.restamp ?? [])] });
       layers.set(step.layer.address, node as SceneNode);
       updated.add(step.member);
       break;
@@ -389,12 +412,12 @@ async function applyLayerStep(step: Step, context: LayerContext): Promise<boolea
       const layer = layerAt(context.members, step.member, step.address);
       if (!node || !layer) throw new Error(`member "${step.member}": the instance "${step.address}" is no longer in the file`);
       const b = build(owner);
+      // Its receipt follows once the run's writes are done, so a real run holds the new component's and the next plans nothing.
+      b.written.push({ node, layer, fields: ['component'] });
       // As a patch of `component` did: its property references written again, then the swap where the component differs.
       const only = new Set(['component']);
       await applyFields(b, node, layer, false, only);
       await swapComponent(b, node, layer);
-      // Its receipt follows once the run's writes are done, so a real run holds the new component's and the next plans nothing.
-      b.written.push({ node, layer, fields: ['component'] });
       await settle(b, node, layer, layers, only);
       updated.add(step.member);
       break;
@@ -451,15 +474,18 @@ export async function applyArtboardUpdate(frameId: string, steps: Step[], desire
     artboard: true,
     members: desired.members as Member[],
   };
-  for (const step of steps) {
-    await applyLayerStep(step, context);
-    if (step.kind === 'CREATE_LAYER' || step.kind === 'REPLACE_LAYER') result.created.push(step.layer.address);
-    else if (step.kind === 'PATCH_LAYER' || step.kind === 'SWAP_COMPONENT') {
-      // A swapped instance with other fields to write is one layer updated, not two.
-      const address = step.kind === 'PATCH_LAYER' ? step.layer.address : step.address;
-      if (!result.updated.includes(address)) result.updated.push(address);
-    } else if (step.kind === 'DELETE_LAYER') result.deleted.push(step.address);
-  }
-  await stampReceipts(written);
+  const stamp = (): Promise<void> => stampReceipts(written);
+  await orStampWhatItWrote(async () => {
+    for (const step of steps) {
+      await applyLayerStep(step, context);
+      if (step.kind === 'CREATE_LAYER' || step.kind === 'REPLACE_LAYER') result.created.push(step.layer.address);
+      else if (step.kind === 'PATCH_LAYER' || step.kind === 'SWAP_COMPONENT') {
+        // A swapped instance with other fields to write is one layer updated, not two.
+        const address = step.kind === 'PATCH_LAYER' ? step.layer.address : step.address;
+        if (!result.updated.includes(address)) result.updated.push(address);
+      } else if (step.kind === 'DELETE_LAYER') result.deleted.push(step.address);
+    }
+  }, stamp);
+  await stamp();
   return result;
 }

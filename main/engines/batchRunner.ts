@@ -2,7 +2,7 @@ import type { Operation, OperationResult, OperationSummary } from '../../shared/
 import { executeOperation, labelForOperation } from './operationExecutor.js';
 import { SymbolicIdRegistry } from '../utils/symbolicIdRegistry.js';
 import type { SimpleAbortSignal } from '../utils/abortController.js';
-import { dependenciesOf } from '../utils/planSymbols.js';
+import { dependenciesOf, producedSymbols } from '../utils/planSymbols.js';
 import { isAlias } from '../utils/figmaTokenAdapter.js';
 
 export interface BatchRunOptions {
@@ -180,18 +180,9 @@ export async function runOperations(ops: Operation[], options: BatchRunOptions):
   };
 }
 
-/** The symbolic id an operation produces, if any. */
-function producedSymbol(op: Operation): string | undefined {
-  if (op.kind === 'CREATE_COLLECTION' || op.kind === 'CREATE_VARIABLE') {
-    return op.symbolicId;
-  }
-  return undefined;
-}
-
-/** Records that an operation's output symbol will never resolve. */
+/** Records that an operation's output symbols, a collection's modes and a mode added among them, will never resolve. */
 function recordFailedSymbol(op: Operation, failedSymbols: Set<string>): void {
-  const symbol = producedSymbol(op);
-  if (symbol) failedSymbols.add(symbol);
+  for (const symbol of producedSymbols([op])) failedSymbols.add(symbol);
 }
 
 /** The failed symbol an operation depends on, if any. */

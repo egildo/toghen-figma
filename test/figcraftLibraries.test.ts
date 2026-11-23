@@ -150,6 +150,28 @@ describe('a library run into FigCraft', () => {
     }
   });
 
+  it('says the library was saved only once the save is done', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    try {
+      fake.refuse = 'file.save';
+      const result = await command([
+        'sync',
+        'fixtures/sample.resolver.json',
+        ...COMPONENTS,
+        '--figcraft',
+        String(fake.port),
+        '--library',
+        join(folder, 'unsaved.figcraft'),
+      ]);
+      assert.equal(result.code, 1);
+      assert.match(result.stderr, /refused file\.save/);
+      assert.doesNotMatch(result.stdout, /saved it/);
+      assert.deepEqual(lockIn(fake, 0).libraries, {}, 'no lock for a library that was not saved');
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('lock enables a library published by hand, accepts its updates and writes the lock, building nothing', async () => {
     const fake = await startFakeFigcraft(['target']);
     try {
@@ -390,11 +412,21 @@ describe('a library run headless', () => {
     assert.ok(fake.disk.has(library), 'the library saved at its path');
     const index = fake.tabs.findIndex((tab) => tab.path === target);
     assert.equal(lockIn(fake, index).libraries['headless-ds'].path, library);
+    // A new session: both files are opened from disk, where the run saved them.
+    fake.tabs.splice(1);
+    fake.active = 0;
     const again = await command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft-file', target, '--library', library]);
     assert.equal(again.code, 0, again.stderr);
     assert.match(again.stdout, /Button: \d+ steps? · 0 created · 0 updated · 0 deleted/);
     assert.match(again.stdout, /is already published as version 1: nothing to publish\./);
     assert.match(again.stdout, /The lock in "app" holds "headless-ds"/);
+    assert.match(again.stdout, new RegExp(`Saved ${target}\\.`));
+  });
+
+  it('refuses a target that is the library itself', async () => {
+    const result = await command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft-file', target, '--library', target]);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /The target is the library .*app\.figcraft itself/);
   });
 
   it('builds a file that uses the library headless, saves it, and plans nothing on a second run', async () => {

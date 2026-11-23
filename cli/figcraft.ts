@@ -43,11 +43,11 @@ import { figcraftWriter } from './figcraftApply.js';
 import { splitKey, type FcLibrary } from './figcraftLibrary.js';
 import { clearWrites, hasWrites, noWrites, sceneOf, writeSteps, type FcNode, type Scene } from './figcraftScene.js';
 
-/** One connection to FigCraft, its control socket or a headless session: one request, one reply, in order. */
+/** One connection to FigCraft, its control socket or a headless session: one reply to each request, by its id. */
 export interface Control {
   call(method: string, params: Record<string, unknown>): Promise<unknown>;
-  /** Opens a file on disk in a tab of its own, or shows it where it is open already; answers nothing. */
-  open(path: string, window?: number): Promise<void>;
+  /** Opens a file on disk in a tab of its own, or shows it where it is open already; answers the tab's index. */
+  open(path: string, window?: number): Promise<number>;
   /** A headless session saves its file, and answers the path saved; the app's file is the person's to save. */
   save?(): Promise<string>;
   /** A headless session's `figcraft-cli` version. */
@@ -76,8 +76,15 @@ export function byLine(line: (text: string) => void): (chunk: string) => void {
 export function connect(port: number): Promise<Control> {
   return new Promise((resolve, reject) => {
     const socket: Socket = connectSocket(port, '127.0.0.1');
-    const waiting: Array<{ resolve(value: unknown): void; reject(error: Error): void }> = [];
+    const waiting = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
     let next = 1;
+    /** Why the connection is over: every call waiting, and every one after, is refused with it. */
+    let ended: Error | undefined;
+    const end = (error: Error): void => {
+      ended ??= error;
+      for (const pending of waiting.values()) pending.reject(ended);
+      waiting.clear();
+    };
     socket.setEncoding('utf8');
     socket.once('error', (error) =>
       reject(new Error(`Nothing answered on 127.0.0.1:${port}: ${error.message}. Start FigCraft with --control ${port}.`)),
@@ -85,26 +92,42 @@ export function connect(port: number): Promise<Control> {
     socket.on(
       'data',
       byLine((line) => {
-        const reply = JSON.parse(line) as { ok: boolean; result?: unknown; error?: string };
-        const pending = waiting.shift();
-        if (reply.ok) pending?.resolve(reply.result);
-        else pending?.reject(new Error(reply.error ?? 'FigCraft refused the request'));
+        let reply: { id?: number | null; ok: boolean; result?: unknown; error?: string };
+        try {
+          reply = JSON.parse(line);
+        } catch {
+          return end(new Error(`FigCraft answered with what is not JSON: "${line.slice(0, 200)}"`));
+        }
+        const pending = typeof reply.id === 'number' ? waiting.get(reply.id) : undefined;
+        // A refusal no request's id names (`bad JSON`, `message too large`) ends the connection, which FigCraft then closes.
+        if (!pending) {
+          if (!reply.ok) end(new Error(reply.error ?? 'FigCraft refused the request'));
+          return;
+        }
+        waiting.delete(reply.id as number);
+        if (reply.ok) pending.resolve(reply.result);
+        else pending.reject(new Error(reply.error ?? 'FigCraft refused the request'));
       }),
     );
-    socket.on('close', () => {
-      for (const pending of waiting.splice(0)) pending.reject(new Error('FigCraft closed the connection'));
-    });
+    socket.on('close', () => end(new Error('FigCraft closed the connection')));
     const call = (method: string, params: Record<string, unknown>): Promise<unknown> =>
-      new Promise((done, fail) => {
-        waiting.push({ resolve: done, reject: fail });
-        socket.write(`${JSON.stringify({ id: next++, method, params })}\n`);
-      });
+      ended
+        ? Promise.reject(ended)
+        : new Promise((done, fail) => {
+            const id = next++;
+            waiting.set(id, { resolve: done, reject: fail });
+            socket.write(`${JSON.stringify({ id, method, params })}\n`);
+          });
     socket.once('connect', () => {
       socket.on('error', () => {});
       resolve({
         call,
         open: async (path, window) =>
-          void (await call('engine.execute', { command: 'file.open', params: { path }, ...(window !== undefined ? { window } : {}) })),
+          (
+            (await call('engine.execute', { command: 'file.open', params: { path }, ...(window !== undefined ? { window } : {}) })) as {
+              index: number;
+            }
+          ).index,
         close: () => socket.end(),
       });
     });
@@ -122,12 +145,20 @@ const before = (a: string, b: string): boolean => {
 };
 
 /**
+ * How long a headless session waits for an answer, in milliseconds: for `initialize`, as long as FigCraft's control
+ * socket waits for any request by default; for any other request, as long as it lets one ask for (`timeoutMs`), since
+ * a batch may be large. A request not answered by then ends the session.
+ */
+export const HEADLESS_WAITS = { start: 60_000, request: 600_000 };
+
+/**
  * A headless FigCraft session on `file`: `figcraft-cli mcp` (`FIGCRAFT_CLI`, else the one on the PATH) as a child
  * process, MCP's JSON-RPC over its stdio. `engine.execute` goes as the `run_command` tool, which runs the same command
  * registry the socket does; there is no window, so nothing else is offered. The file is opened when it exists; when it
- * does not, the session's untitled file is the one written, and saving gives it the path.
+ * does not, the session's untitled file is the one written, and saving gives it the path. A request not answered
+ * within `waits`, or a line on the child's standard output that is not JSON, ends the session, and every request with it.
  */
-export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcraft-cli'): Promise<Control> {
+export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcraft-cli', waits = HEADLESS_WAITS): Promise<Control> {
   const child = spawn(cli, ['mcp'], { stdio: ['pipe', 'pipe', 'pipe'] });
   const waiting = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
   let said = '';
@@ -144,10 +175,16 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
   child.stdout.on(
     'data',
     byLine((line) => {
-      const reply = JSON.parse(line) as { id?: number; result?: unknown; error?: { message: string } };
+      let reply: { id?: number; result?: unknown; error?: { message: string } };
+      try {
+        reply = JSON.parse(line);
+      } catch {
+        // MCP's stdio carries its messages and nothing else: what else is there is said, and the session goes.
+        end(new Error(`${cli} mcp wrote what is not MCP on its standard output: "${line.slice(0, 200)}"`));
+        return void child.kill();
+      }
       const pending = reply.id === undefined ? undefined : waiting.get(reply.id);
       if (!pending) return;
-      waiting.delete(reply.id!);
       if (reply.error) pending.reject(new Error(reply.error.message));
       else pending.resolve(reply.result);
     }),
@@ -165,17 +202,35 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
   child.stdin.on('error', () => {});
 
   const send = (message: Record<string, unknown>): void => void child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`);
-  const rpc = (method: string, params: unknown): Promise<unknown> =>
+  /** A request, answered within `within`; `what` names it if it is not. */
+  const rpc = (method: string, params: unknown, what = method, within = waits.request): Promise<unknown> =>
     ended
       ? Promise.reject(ended)
       : new Promise((resolve, reject) => {
           const id = next++;
-          waiting.set(id, { resolve, reject });
+          const timer = setTimeout(() => {
+            end(new Error(`${cli} mcp did not answer ${what} within ${within / 1000} s, so the session was stopped`));
+            child.kill();
+          }, within);
+          const settled = (): void => {
+            clearTimeout(timer);
+            waiting.delete(id);
+          };
+          waiting.set(id, {
+            resolve: (value) => {
+              settled();
+              resolve(value);
+            },
+            reject: (error) => {
+              settled();
+              reject(error);
+            },
+          });
           send({ id, method, params });
         });
   /** A tool's answer, its text read as JSON; a tool error is a refusal, as the socket's `ok: false` is. */
   const tool = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
-    const { content, isError } = (await rpc('tools/call', { name, arguments: args })) as {
+    const { content, isError } = (await rpc('tools/call', { name, arguments: args }, String(args.command ?? name))) as {
       content: Array<{ text?: string }>;
       isError?: boolean;
     };
@@ -187,11 +242,12 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
 
   return (async () => {
     try {
-      const { serverInfo } = (await rpc('initialize', {
-        protocolVersion: '2025-06-18',
-        capabilities: {},
-        clientInfo: { name: 'toghen-figma', version: '1' },
-      })) as { serverInfo?: { version?: string } };
+      const { serverInfo } = (await rpc(
+        'initialize',
+        { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'toghen-figma', version: '1' } },
+        'initialize',
+        waits.start,
+      )) as { serverInfo?: { version?: string } };
       const version = serverInfo?.version ?? 'of no version';
       if (!/^\d+\.\d+\.\d+/.test(version) || before(version, HEADLESS_SINCE)) {
         throw new Error(
@@ -206,7 +262,7 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
           method === 'engine.execute'
             ? tool('run_command', { command: params.command, params: params.params ?? {} })
             : Promise.reject(new Error(`A headless FigCraft has no ${method}.`)),
-        open: async (path) => void (await tool('open_file', { path })),
+        open: async (path) => ((await tool('open_file', { path })) as { opened: { index: number } }).opened.index,
         save: async () => ((await tool('save_file', { path: file })) as { path?: string }).path ?? file,
         close,
       };
@@ -218,11 +274,15 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
   })();
 }
 
-/** A tab as `doc.list` lists it. */
+/**
+ * A tab as `doc.list` lists it. Its `id` names the open file (FigCraft 0.18.1); its `path` is listed only to a call that
+ * names no agent, so never to a headless session, whose calls MCP makes for one.
+ */
 interface Tab {
   index: number;
+  id?: number;
   name: string;
-  path: string | null;
+  path?: string | null;
   active: boolean;
 }
 
@@ -230,6 +290,8 @@ interface Tab {
 export interface Pin {
   window?: number;
   tab: Tab;
+  /** Where the file is on disk, as far as the run knows it: none for a file the run made and has not saved. */
+  path?: string;
   /** Set once the file left its tab: every later request is refused before it is sent. */
   lost?: string;
   /** What the writes since the layers were last read touched (`touchedBy`), for the next read to read again. */
@@ -272,7 +334,9 @@ export function touchedBy(into: Touched, steps: readonly Step[], results: readon
   }
 }
 
-const sameFile = (a: Tab, b: Tab | undefined): boolean => b !== undefined && a.name === b.name && a.path === b.path;
+/** Whether `b` is the file `a` was: by its id, or by its name and path where FigCraft lists no id. */
+const sameFile = (a: Tab, b: Tab | undefined): boolean =>
+  b !== undefined && (a.id !== undefined ? a.id === b.id : a.name === b.name && a.path === b.path);
 
 /** FigCraft's front window, when it reports windows: a window id keeps the requests in one window when it has several. */
 async function frontWindow(control: Control): Promise<number | undefined> {
@@ -289,30 +353,29 @@ export async function pinShownFile(control: Control): Promise<Pin> {
   const window = await frontWindow(control);
   const tab = (await tabsIn(control, window)).find((candidate) => candidate.active);
   if (!tab) throw new Error('FigCraft shows no file: open the file to sync into, then run again.');
-  return { ...(window !== undefined ? { window } : {}), tab };
+  return { ...(window !== undefined ? { window } : {}), tab, ...(tab.path ? { path: tab.path } : {}) };
 }
 
 /**
- * The file at `path`, pinned: its tab where it is open, else a tab it is opened in. A file that does not exist yet is a
- * new document named after it, with no path until it is saved there (`made`), which is the caller's to do.
+ * The file at `path`, pinned: its tab where it is open, else a tab it is opened in, by the index the opening answers
+ * either way. A file that does not exist yet is a new document named after it, with no path until it is saved there
+ * (`made`), which is the caller's to do.
  */
 export async function pinPath(control: Control, path: string): Promise<Pin & { made?: true }> {
   const window = await frontWindow(control);
   const at = { ...(window !== undefined ? { window } : {}) };
-  const open = (await tabsIn(control, window)).find((tab) => tab.path === path);
-  if (open) return { ...at, tab: open };
   // FigCraft opens it, or says it is not there (`No such file or directory`); the file system it reads is its own.
-  const missing = await control.open(path, window).then(
-    () => false,
+  const opened = await control.open(path, window).then(
+    (index) => index,
     (error: Error) => {
-      if (/No such file|os error 2/i.test(error.message)) return true;
+      if (/No such file|os error 2/i.test(error.message)) return undefined;
       throw error;
     },
   );
-  if (!missing) {
-    const tab = (await tabsIn(control, window)).find((candidate) => candidate.path === path);
+  if (opened !== undefined) {
+    const tab = (await tabsIn(control, window))[opened];
     if (!tab) throw new Error(`FigCraft did not open ${path}.`);
-    return { ...at, tab };
+    return { ...at, tab, path };
   }
   const { index } = (await control.call('engine.execute', {
     command: 'file.new',
@@ -364,7 +427,7 @@ export async function inFile(control: Control, pin: Pin, label: string, steps: S
  */
 export async function savePinned(control: Control, pin: Pin, path: string): Promise<void> {
   if (pin.lost) throw new Error(pin.lost);
-  const [, , tabs] = (await control.call('engine.execute', {
+  const [, saved, tabs] = (await control.call('engine.execute', {
     command: 'command.batch',
     params: {
       commands: [
@@ -374,13 +437,15 @@ export async function savePinned(control: Control, pin: Pin, path: string): Prom
       ],
     },
     ...(pin.window !== undefined ? { window: pin.window } : {}),
-  })) as [unknown, unknown, Tab[]];
+  })) as [unknown, { path?: string }, Tab[]];
+  // The tab is still the file pinned: by its id, or, where FigCraft lists none, by the path it now has (a save renames it).
   const now = tabs[pin.tab.index];
-  if (now?.path !== path) {
+  if (now === undefined || (pin.tab.id !== undefined ? now.id !== pin.tab.id : now.path !== path)) {
     pin.lost = `FigCraft no longer has "${pin.tab.name}" at the tab it was in: it was not saved at ${path}.`;
     throw new Error(pin.lost);
   }
   pin.tab = now;
+  pin.path = saved.path ?? path;
 }
 
 /** Closes the pinned file's tab, unsaved changes and all: only for a file the run made and did not save. */
@@ -837,7 +902,10 @@ export type FigcraftBridge = Bridge & {
 export async function openFigcraft(at: number | { file: string }, say: Say): Promise<FigcraftBridge> {
   const control = typeof at === 'number' ? await connect(at) : await headless(at.file);
   try {
-    return await bridgeOn(control, await pinShownFile(control), say, true);
+    const pin = await pinShownFile(control);
+    // A headless session's file is the one it opened, or its untitled file, which the run saves there.
+    if (typeof at !== 'number') pin.path = at.file;
+    return await bridgeOn(control, pin, say, true);
   } catch (error) {
     control.close();
     throw error;

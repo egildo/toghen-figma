@@ -93,6 +93,26 @@ describe('operationExecutor — bindings', () => {
     assert.equal(mock.calls('getNodeByIdAsync').length, 1);
   });
 
+  // Measured §8: a paint bound again on an existing node draws the colour it carries, so it carries the variable's.
+  for (const key of ['fills', 'strokes'] as const) {
+    it(`gives the ${key} paint the variable's colour as it binds it`, async () => {
+      const mock = createFigmaMock()
+        .withCollection('Demo', ['light'])
+        .withVariable('Demo', 'color/accent', 'COLOR', { light: { r: 1, g: 0.4, b: 0, a: 1 } })
+        .install();
+      const frame = figma.createFrame();
+      frame[key] = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 0.5 }];
+      const variable = mock.variable('Demo', 'color/accent')!;
+
+      await executeOperation({ kind: 'BIND_VARIABLE', nodeId: frame.id, property: `${key}[0].color`, variableId: variable.id });
+
+      const paint = frame[key][0] as SolidPaint;
+      assert.deepEqual(paint.color, { r: 1, g: 0.4, b: 0 });
+      assert.equal(paint.opacity, 0.5);
+      assert.deepEqual(paint.boundVariables?.color, { type: 'VARIABLE_ALIAS', id: variable.id });
+    });
+  }
+
   it('refuses to bind a page', async () => {
     createFigmaMock().withPage('Page 1').install();
     const pageId = figma.root.children[0].id;
@@ -267,6 +287,59 @@ describe('batchRunner — failure semantics', () => {
       'and the reason names the prerequisite, not "Unresolved symbolic ID"',
     );
     assert.deepEqual(mock.collections(), []);
+  });
+
+  it('reports a refused mode as one failure, and its values as skipped prerequisites', async () => {
+    const mock = createFigmaMock()
+      .withModeCap(2)
+      .withCollection('Demo', ['light', 'dark'])
+      .withVariable('Demo', 'Demo/a', 'FLOAT')
+      .install();
+    const collection = mock.collections()[0];
+    const variable = mock.variable('Demo', 'Demo/a')!;
+    const value = (n: number): Operation => ({
+      kind: 'SET_VARIABLE_VALUE',
+      variableId: variable.id,
+      modeId: '$mode:Demo/sepia',
+      value: n,
+      label: 'Demo/a [sepia]',
+      tokenPath: 'Demo.a',
+      modeName: 'sepia',
+    });
+
+    const summary = await runOperations(
+      [{ kind: 'ADD_MODE', collectionId: collection.id, collectionName: 'Demo', modeName: 'sepia' }, value(1), value(2)],
+      { onProgress: noProgress },
+    );
+
+    assert.equal(summary.failed, 1, 'only the mode that was refused');
+    assert.deepEqual(
+      summary.results.filter((r) => r.operation.kind === 'SET_VARIABLE_VALUE').map((r) => [r.status, r.reason]),
+      [
+        ['skipped', 'prerequisite failed: $mode:Demo/sepia'],
+        ['skipped', 'prerequisite failed: $mode:Demo/sepia'],
+      ],
+    );
+  });
+
+  it('counts the modes a refused collection would have made among what failed with it', async () => {
+    createFigmaMock().withModeCap(2).install();
+    const ops = collectionPlan();
+    // A value that needs nothing from the plan but the mode: blocked by it.
+    ops.push({
+      kind: 'SET_VARIABLE_VALUE',
+      variableId: 'VariableID:elsewhere',
+      modeId: '$mode:Demo/sepia',
+      value: 2,
+      label: 'Demo/b [sepia]',
+      tokenPath: 'Demo.b',
+      modeName: 'sepia',
+    });
+
+    const summary = await runOperations(ops, { onProgress: noProgress });
+
+    assert.equal(summary.failed, 1);
+    assert.equal(summary.results.at(-1)?.reason, 'prerequisite failed: $mode:Demo/sepia');
   });
 
   it('counts a cancelled operation apart from a failed one', async () => {

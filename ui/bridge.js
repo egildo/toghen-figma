@@ -14,6 +14,8 @@ const URL = 'ws://localhost:3055';
 const RETRY_MS = 1000;
 /** The close code the command line gives a code it does not know. */
 const REFUSED = 4001;
+/** The close code for a window whose place another window, paired with the same code, took. */
+const REPLACED = 4002;
 
 let socket = null;
 let code = '';
@@ -60,6 +62,11 @@ function open() {
       wanted = false;
       code = '';
       observe('refused');
+    } else if (event.code === REPLACED) {
+      // The other window holds the connection now; trying again would take it back, and the two would swap every second.
+      wanted = false;
+      code = '';
+      observe('off');
     } else if (wanted) {
       observe(wasPaired || phase === 'lost' ? 'lost' : 'unreachable');
       retry = setTimeout(open, RETRY_MS);
@@ -67,7 +74,7 @@ function open() {
   };
 }
 
-/** Connects, and keeps trying until the person disconnects or the command line refuses the code. */
+/** Connects, and keeps trying until the person disconnects, the command line refuses the code, or another window takes its place. */
 export function connectCommandLine(pairingCode) {
   if (wanted) return;
   wanted = true;

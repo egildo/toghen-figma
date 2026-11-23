@@ -1,0 +1,61 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { useFigmaMock } from '../support/figmaMock.js';
+import { fingerprintOf } from '../../main/components/fingerprint.js';
+import type { Resolved } from '../../main/components/resolve.js';
+import { run } from '../../main/components/run.js';
+import { desiredFromText, desiredOf, shellMock } from './support.js';
+
+/** An artboard showing one instance of a component named by its published key. */
+const desired = desiredFromText(`artboard Sheet
+
+FRAME Sheet layoutMode=VERTICAL {
+    INSTANCE Mark component=(key)"k1"
+}
+`);
+
+/** What the fingerprint reads of a resolution: the component an instance shows, and nothing pending. */
+const resolvedTo = (component: { id: string; key: string; remote: boolean }): Resolved =>
+  ({
+    pending: [],
+    component: () => ({ ...component, parent: null, componentPropertyDefinitions: {} }),
+    componentSource: () => ({ name: 'Mark', key: component.key }),
+  }) as unknown as Resolved;
+
+describe('the fingerprint', () => {
+  it('names a library component by its key: its node id changes from one import to the next (measured §15)', async () => {
+    const before = await fingerprintOf(desired, resolvedTo({ id: '126:6', key: 'k1', remote: true }), undefined);
+    const after = await fingerprintOf(desired, resolvedTo({ id: '127:6', key: 'k1', remote: true }), undefined);
+    assert.equal(after, before);
+  });
+
+  it('names a component of the file by its node id, which another of the same key would not have', async () => {
+    const before = await fingerprintOf(desired, resolvedTo({ id: '12:3', key: 'k1', remote: false }), undefined);
+    const after = await fingerprintOf(desired, resolvedTo({ id: '12:4', key: 'k1', remote: false }), undefined);
+    assert.notEqual(after, before);
+  });
+});
+
+describe('skipUnchanged, in Figma', () => {
+  useFigmaMock();
+
+  it('leaves a set unread while nothing it writes changed, and reads it again once a variable it binds holds another value', async () => {
+    const mock = shellMock().install();
+    const built = await run(desiredOf('shell'));
+    const writes = mock.writes().length;
+
+    for (const dryRun of [true, false]) {
+      const skipped = await run(desiredOf('shell'), { skipUnchanged: true, dryRun });
+      assert.equal(skipped.unchanged, true);
+      assert.equal(skipped.setId, built.setId);
+      assert.deepEqual(skipped.steps, []);
+    }
+    assert.equal(mock.writes().length, writes, 'a set left unread is not written to');
+
+    const space = mock.variable('Demo', 'space/md')!;
+    space.setValueForMode(Object.keys(space.valuesByMode)[0], 20);
+    const read = await run(desiredOf('shell'), { skipUnchanged: true, dryRun: true });
+    assert.equal(read.unchanged, undefined, 'a value a field binds is part of the fingerprint');
+    assert.ok(read.steps.length > 0);
+  });
+});

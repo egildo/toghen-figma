@@ -474,8 +474,11 @@ describe('StyleSyncEngine — a member becomes a binding', () => {
     return op;
   };
 
+  // A literal weight's own line, which these tokens give, is the next suite's: these are about the bindings.
   const warningsFor = (operations: Operation[], path: string) =>
-    operations.flatMap((op) => (op.kind === 'WARNING' && op.path === path ? [op.message] : []));
+    operations.flatMap((op) =>
+      op.kind === 'WARNING' && op.path === path && !op.message.startsWith(`"${path}.fontWeight" is `) ? [op.message] : [],
+    );
 
   it('binds a member that refers to a token, and still carries its value', async () => {
     const id = fileWith([
@@ -570,6 +573,25 @@ describe('StyleSyncEngine — a member becomes a binding', () => {
     for (const path of ['Demo.text.ratio', 'Demo.text.fixed', 'Demo.text.plain', 'Demo.effects.raised']) {
       styleOf(operations, path);
     }
+  });
+
+  it('says nothing of a variable the same dry run would create, and binds it when the real run gets there', async () => {
+    createFigmaMock().install();
+    const pending = {
+      variables: [
+        { collection: 'Demo', name: 'font/family/sans', type: 'STRING' as const },
+        { collection: 'Demo', name: 'font/size/md', type: 'STRING' as const },
+      ],
+      textStyles: [],
+    };
+
+    const { operations } = await new StyleSyncEngine().buildPlan(bindingDocument(), defaultTokenTypeMap, undefined, { pending });
+
+    assert.equal(styleOf(operations, 'Demo.text.body').bindings, undefined, 'a dry run has no variable to bind');
+    assert.deepEqual(warningsFor(operations, 'Demo.text.body'), [
+      '"Demo.text.body.fontSize" refers to "Demo.font.size.md", but that variable is STRING and ' +
+        'the field takes FLOAT, so the value is written instead of a binding.',
+    ]);
   });
 
   it('warns, and writes the value, when the variable has another type', async () => {
@@ -673,5 +695,72 @@ describe('StyleSyncEngine — a member becomes a binding', () => {
     assert.ok(tag && tag.kind === 'CREATE_STYLE');
     assert.deepEqual((tag.props as { letterSpacing: unknown }).letterSpacing, { unit: 'PERCENT', value: 8 });
     assert.ok(!('fontVariantNumeric' in tag.props));
+  });
+});
+
+describe('StyleSyncEngine — a W3C typography token, with no fontStyle', () => {
+  useFigmaMock();
+
+  /** Typography in the W3C shape: a family stack, dimensions as `{value, unit}`, a number weight, no `fontStyle`. */
+  const typography = (extra: Record<string, unknown> = {}) => ({
+    $type: 'typography',
+    $value: {
+      fontFamily: ['Inter', 'sans-serif'],
+      fontSize: { value: 20, unit: 'px' },
+      fontWeight: 700,
+      lineHeight: 1.25,
+      letterSpacing: { value: 0, unit: 'px' },
+      ...extra,
+    },
+  });
+  const resolver = () =>
+    new Resolver({
+      version: '2025-11-01',
+      name: 'Demo',
+      sets: {
+        base: {
+          sources: [
+            {
+              font: { weight: { strong: { $type: 'fontWeight', $value: 700 } } },
+              text: {
+                heading: typography(),
+                named: typography({ fontStyle: 'Bold' }),
+                bound: typography({ fontWeight: '{font.weight.strong}' }),
+              },
+            },
+          ],
+        },
+      },
+      resolutionOrder: [{ $ref: '#/sets/base' }],
+    } as ResolverDocument);
+
+  it('builds the style, and says the weight it cannot hold, by name', async () => {
+    const mock = createFigmaMock().install();
+    const { operations } = await new StyleSyncEngine().buildPlan(resolver(), defaultTokenTypeMap);
+
+    const heading = operations.find((op) => op.kind === 'CREATE_STYLE' && op.tokenPath === 'Demo.text.heading');
+    assert.ok(heading && heading.kind === 'CREATE_STYLE');
+    assert.deepEqual(
+      { family: heading.props.fontFamily, style: heading.props.fontStyle, size: heading.props.fontSize },
+      { family: 'Inter', style: 'Regular', size: 20 },
+    );
+    const weights = operations.filter((op) => op.kind === 'WARNING' && /cannot hold/.test(op.message));
+    assert.deepEqual(
+      weights.map((op) => op.kind === 'WARNING' && op.message),
+      [
+        '"Demo.text.heading.fontWeight" is 700, which the text style cannot hold: a text style takes its weight from its font style, and the token names none, so the style is "Regular".',
+      ],
+      'neither a token that names its fontStyle nor one whose weight refers to a token',
+    );
+
+    // The execute handler loads the fonts first; the runner alone does not.
+    for (const style of ['Regular', 'Bold']) await figma.loadFontAsync({ family: 'Inter', style });
+    const summary = await runOperations(operations, { onProgress: () => {} });
+    assert.deepEqual(
+      summary.results.filter((result) => result.status === 'failed').map((result) => result.reason),
+      [],
+    );
+    const style = mock.styles('TEXT').find((candidate) => candidate.name === 'text/heading') as TextStyle | undefined;
+    assert.deepEqual({ family: style?.fontName.family, style: style?.fontName.style }, { family: 'Inter', style: 'Regular' });
   });
 });

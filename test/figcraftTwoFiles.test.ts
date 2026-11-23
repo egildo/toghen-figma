@@ -31,9 +31,9 @@ describe('two files over one FigCraft connection', () => {
       assert.equal((await pinPath(control, '/work/kept.figcraft')).tab.index, opened.tab.index, 'found where it is open');
       const made = await pinPath(control, '/work/new-library.figcraft');
       assert.equal(made.made, true);
-      assert.equal(made.tab.path, null);
+      assert.equal(made.path, undefined);
       await savePinned(control, made, '/work/new-library.figcraft');
-      assert.equal(made.tab.path, '/work/new-library.figcraft');
+      assert.equal(made.path, '/work/new-library.figcraft');
       assert.ok(fake.disk.has('/work/new-library.figcraft'));
     } finally {
       control.close();

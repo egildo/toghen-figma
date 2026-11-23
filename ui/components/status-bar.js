@@ -8,7 +8,7 @@
 
 import { TgElement, define } from './base.js';
 import { dot, icon } from '../markup.js';
-import { escHtml, formatClock } from '../format.js';
+import { escAttr, escHtml, formatClock } from '../format.js';
 import { send } from '../commandBus.js';
 
 const WORDS = { idle: 'idle', ready: 'idle', complete: 'idle', planning: 'running', running: 'running', error: 'error' };
@@ -30,10 +30,10 @@ class TgStatusBar extends TgElement {
     this.patch(
       `<span class="condition">${dot(busy ? 'busy' : word === 'error' ? 'error' : 'idle')}` +
         `<span>${word}</span></span>` +
-        (state.errorMessage ? `<span class="error" title="${escHtml(state.errorMessage)}">${escHtml(state.errorMessage)}</span>` : '') +
+        (state.errorMessage ? `<span class="error" title="${escAttr(state.errorMessage)}">${escHtml(state.errorMessage)}</span>` : '') +
         `<span class="right">` +
         (phase === 'paired'
-          ? `<span class="command-line" title="Command line connected at ${escHtml(formatClock(at))}">${icon('command-line')}${dot('connected')}${escHtml(formatClock(at))}</span>`
+          ? `<span class="command-line" title="Command line connected at ${escAttr(formatClock(at))}">${icon('command-line')}${dot('connected')}${escHtml(formatClock(at))}</span>`
           : '') +
         (state.windowMode
           ? `<button type="button" class="tg-button" data-shape="icon" data-variant="quiet" data-size="xs" data-action="window" data-mode="${wide ? 'narrow' : 'wide'}"` +
