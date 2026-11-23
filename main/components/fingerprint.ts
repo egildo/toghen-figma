@@ -5,9 +5,9 @@
  * It covers what decides the writes: the members as kdlet expanded them, the component's properties, the page; for
  * each token, what is written, the variable a field binds with what it holds in each mode, its aliases followed, or
  * the value a field Figma cannot bind is written as, and the style a field applies; for each component an instance
- * shows, which one it is and its property definitions, which an instance's properties are written against; and this
- * package's version, so a new version reads everything once. Where a source position moved and nothing else did, the
- * fingerprint is the same.
+ * shows, which one it is (a library's by its key) and its property definitions, which an instance's properties are
+ * written against; and this package's version, so a new version reads everything once. Where a source position moved
+ * and nothing else did, the fingerprint is the same.
  */
 
 import { hashOf } from '../../shared/components/diff.js';
@@ -73,7 +73,8 @@ export async function fingerprintOf(desired: Desired, resolved: Resolved, page: 
     const node = attempt(() => resolved.component(ref));
     const set = node?.parent?.type === 'COMPONENT_SET' ? (node.parent as ComponentSetNode) : node;
     components[key] = {
-      id: node?.id ?? null,
+      // A library component's node id changes from one import to the next (measured §15); its key does not.
+      id: node ? (node.remote ? node.key : node.id) : null,
       source: resolved.componentSource(ref),
       definitions: (set && attempt(() => set.componentPropertyDefinitions)) ?? null,
     };

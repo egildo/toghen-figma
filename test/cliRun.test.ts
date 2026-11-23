@@ -277,8 +277,8 @@ describe('toghen-figma sync', () => {
       'LOAD_DOCUMENT',
       'CHECK_COMPONENTS',
       'PLAN_VARIABLE_SYNC',
-      'PLAN_STYLE_SYNC',
       'GET_FIGMA_COLLECTIONS',
+      'PLAN_STYLE_SYNC',
       'RUN_COMPONENT',
       'FINISH_COMPONENTS',
     ]);
@@ -294,6 +294,34 @@ describe('toghen-figma sync', () => {
       .filter((api) => !/clientStorage/.test(api));
     assert.deepEqual(wrote, [], 'nothing in the file changed');
     assert.ok(!mock.variables().some((v) => v.name === 'space/xl'));
+  });
+
+  it('a dry run tells the style plan the variables the variable plan would create, so it gives no advice to sync them first', async () => {
+    const mock = fileMock();
+    // A text style whose size refers to a token that has no variable in the file yet.
+    const tokens = JSON.stringify({
+      size: { md: { $type: 'dimension', $value: { value: 16, unit: 'px' } } },
+      text: {
+        body: {
+          $type: 'typography',
+          $value: { fontFamily: ['Inter'], fontSize: '{size.md}', fontWeight: 400, lineHeight: 1.5, fontStyle: 'Regular' },
+        },
+      },
+    });
+    const run = start(['variables', 'tokens/resolver.json', '--dry-run'], {
+      ...files({}, false),
+      '/repo/tokens/base.tokens.json': tokens,
+    });
+    const plugin = await pair(run, mock);
+    const result = await run.done;
+
+    assert.equal(result.code, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /^Variable plan: 1 creates/m);
+    assert.doesNotMatch(result.stdout, /sync variables first/);
+    const style = plugin.commands.find((command) => command.type === 'PLAN_STYLE_SYNC')!;
+    assert.deepEqual((style.payload as { pending?: { variables: unknown[] } }).pending?.variables, [
+      { collection: 'Tokens', name: 'size/md', type: 'FLOAT' },
+    ]);
   });
 
   it('a dry run stops when the plan would make a name a second time, in another collection', async () => {
@@ -1643,7 +1671,7 @@ describe('toghen-figma: skips by cause, and --verbose', () => {
       mock,
     );
     assert.equal(dry.code, 0, `${dry.stdout}\n${dry.stderr}`);
-    assert.match(dry.stdout, /^Panel \(dry run\): \d+ steps? · 0 created · 1 would update · 0 deleted$/m);
+    assert.match(dry.stdout, /^Panel \(dry run\): \d+ steps? · 0 would create · 1 would update · 0 would delete$/m);
     assert.match(dry.stdout, /^ {2}patch Panel Panel: .+$/m);
     assert.deepEqual(
       mock
@@ -1660,6 +1688,23 @@ describe('toghen-figma: skips by cause, and --verbose', () => {
     assert.equal(real.code, 0, `${real.stdout}\n${real.stderr}`);
     assert.match(real.stdout, /^Panel: \d+ steps? · 0 created · 1 updated · 0 deleted$/m);
     assert.doesNotMatch(real.stdout, /patch Panel/, 'without --verbose, no patch lines');
+  });
+
+  it('a dry run of a set counts the members the real run would create and delete', async () => {
+    const mock = fileMock();
+    const argv = ['components', 'ui/badge.component.kdl', '--resolver', 'tokens/resolver.json'];
+    const first = start([...argv, '--dry-run'], files({ 'ui/badge.component.kdl': badge('hot cold') }, true));
+    await pair(first, mock);
+    const planned = await first.done;
+    assert.equal(planned.code, 0, `${planned.stdout}\n${planned.stderr}`);
+    assert.match(planned.stdout, /^Badge \(dry run\): 1 step · 2 would create · 0 would update · 0 would delete$/m);
+
+    const built = await again(argv, files({ 'ui/badge.component.kdl': badge('hot cold') }, true), first, mock);
+    assert.match(built.stdout, /^Badge: \d+ steps? · 2 created · 0 updated · 0 deleted$/m);
+
+    const changed = await again([...argv, '--dry-run'], files({ 'ui/badge.component.kdl': badge('hot warm') }, true), first, mock);
+    assert.equal(changed.code, 0, `${changed.stdout}\n${changed.stderr}`);
+    assert.match(changed.stdout, /^Badge \(dry run\): \d+ steps · 1 would create · 0 would update · 1 would delete · 1 breaking$/m);
   });
 });
 

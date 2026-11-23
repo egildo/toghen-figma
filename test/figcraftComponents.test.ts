@@ -601,7 +601,7 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
       assert.equal(first.code, 0, first.stderr);
       assert.match(first.stdout, /Veil: 1 step · 2 created/);
       const labels = fake.labels.length;
-      read(fake, await run(['--dry-run']), /Veil \(dry run\): 1 step · 0 created · 0 would update · 0 deleted/, labels);
+      read(fake, await run(['--dry-run']), /Veil \(dry run\): 1 step · 0 would create · 0 would update · 0 would delete/, labels);
       read(fake, await run(), /Veil: 1 step · 0 created · 0 updated · 0 deleted/, labels);
     } finally {
       await fake.close();

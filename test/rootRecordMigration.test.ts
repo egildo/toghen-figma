@@ -58,7 +58,10 @@ const DOCUMENT = JSON.stringify({
 });
 
 const plan = () => getState().lastPlan as Operation[];
-const forPath = (path: string) => plan().filter((op) => ('path' in op && op.path === path) || ('tokenPath' in op && op.tokenPath === path));
+// The style's literal weight has a line of its own on every plan (styleSyncEngine.test.ts); these read the rest.
+const weightLine = (op: Operation) => op.kind === 'WARNING' && op.message.includes('which the text style cannot hold');
+const forPath = (path: string) =>
+  plan().filter((op) => !weightLine(op) && (('path' in op && op.path === path) || ('tokenPath' in op && op.tokenPath === path)));
 const migrate = () => migrateRootRecord(new Resolver(JSON.parse(DOCUMENT)), defaultTokenTypeMap);
 const rootKeys = (mock: FigmaMockHandle) => Object.keys(mock.sharedPluginData('toghen'));
 

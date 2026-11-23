@@ -1,5 +1,5 @@
 import type { LoadResult } from '@toghen/lib';
-import type { CompactReport, RunOptions } from './components/steps.js';
+import type { CompactReport, Pending, RunOptions } from './components/steps.js';
 import type { BlueprintTokens } from './components/blueprint.js';
 import type { Operation, OperationSummary, SkipCounts } from './operations.js';
 
@@ -471,8 +471,11 @@ export type Command =
    */
   | { type: 'PLAN_VARIABLE_SYNC'; payload: { collectionName?: string; allowBreaking?: boolean; overwriteDrift?: boolean } }
   | { type: 'EXECUTE_VARIABLE_SYNC'; payload: Record<string, never> }
-  /** `overwriteDrift` writes the document's value over a style changed in Figma since the last sync wrote it, as for a variable. */
-  | { type: 'PLAN_STYLE_SYNC'; payload: { collectionName?: string; overwriteDrift?: boolean } }
+  /**
+   * `overwriteDrift` writes the document's value over a style changed in Figma since the last sync wrote it, as for a variable.
+   * `pending`, a dry run's: the variables its variable plan would create, which a member then refers to without a warning.
+   */
+  | { type: 'PLAN_STYLE_SYNC'; payload: { collectionName?: string; overwriteDrift?: boolean; pending?: Pending } }
   | { type: 'EXECUTE_STYLE_SYNC'; payload: Record<string, never> }
   | { type: 'AUDIT_SELECTION'; payload: { scope: QueryScope } }
   | { type: 'PLAN_SCAFFOLD'; payload: { query: string; scope: QueryScope } }
@@ -536,8 +539,9 @@ export type Command =
       };
     }
   /**
-   * The end of a run, once, after its last component or artboard step: removes the strays when `allowBreaking`, and stacks
-   * Toghen's sets and artboards again on each page the run changed one on. With `dryRun` it only says what it would restack.
+   * The end of a run, once, after its last component or artboard step: with `allowBreaking`, removes the strays and, when
+   * the check had `prune`, the sets and artboards no file declares; then stacks Toghen's sets and artboards again on each
+   * page the run created or changed one on. With `dryRun` it only says what it would restack.
    */
   | { type: 'FINISH_COMPONENTS'; payload: { dryRun?: boolean; allowBreaking?: boolean } }
   | { type: 'CANCEL_OPERATION'; payload: Record<string, never> }

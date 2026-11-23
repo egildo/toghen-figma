@@ -29,6 +29,7 @@ export async function PLAN_STYLE_SYNC(payload: PlanStyleSyncCommand['payload']):
   const engine = new StyleSyncEngine();
   const { operations } = await engine.buildPlan(state.resolver, state.conversionMap, collectionName, {
     overwriteDrift: payload.overwriteDrift === true,
+    ...(payload.pending ? { pending: payload.pending } : {}),
   });
   operations.push(...danglingSymbolWarnings(operations));
   const summary = engine.summarizePlan(operations);
