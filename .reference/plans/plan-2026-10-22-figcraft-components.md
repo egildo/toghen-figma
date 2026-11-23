@@ -93,11 +93,11 @@ Measured over the control socket on port 7981, in a new file of its own ("toghen
 - exposing a nested instance (`component.exposeInstance`);
 - whether a page's `node.get` reaches a member's children at depth. A walk with `node.get {id: page, depth: 8}` listed only the page's top level. `document.inspect {allPages: true, depth}` is the other way in.
 
-**Seen in passing.** "SibarDOC UI" was the tab shown when the probe began, and the window was put back on it. "Fascicoli — bozze" was marked unsaved when the probe ended. The probe never switched to that file, and every probe script switched to its own file first. But FigCraft acts on the tab it shows, so a second program driving the same FigCraft could change that. Egildo may want to look at it.
+**Seen in passing.** A consumer's file was the tab shown when the probe began, and the window was put back on it. Another of its files was marked unsaved when the probe ended. The probe never switched to that file, and every probe script switched to its own file first. But FigCraft acts on the tab it shows, so a second program driving the same FigCraft could change that. Egildo may want to look at it.
 
 ### 1.2 The consumer's evidence (read only)
 
-`sibardoc-prototype` builds its two FigCraft libraries by writing a whole file in the shape of Figma's web API and importing it (`file.import`), then fixing what the import gets wrong with command scripts. The limits it works around are all on the import:
+A consumer builds its two FigCraft libraries by writing a whole file in the shape of Figma's web API and importing it (`file.import`), then fixing what the import gets wrong with command scripts. The limits it works around are all on the import:
 
 - **Instance sizes.** The import sizes an instance as if it were empty, so `instances.mjs` resizes each one. Measured above: an instance made by command has its main's size.
 - **Width bindings.** The import refuses them, so `bindwidths.mjs` binds them afterwards with `variable.bind {field: "width"}`. That command works.
