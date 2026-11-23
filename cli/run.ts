@@ -359,7 +359,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (args.library !== undefined) {
         const path = resolve(io.cwd, args.library);
         figcraft = { target: opened, path };
-        if (opened.pin.tab.path === path)
+        if (opened.pin.path === path)
           throw new Error(`The target is the library ${args.library} itself: show, or name, the file that uses it.`);
         // `lock` builds nothing, so it needs only the target; a build happens in the library file.
         if (args.entry !== undefined || args.files.length > 0) {
@@ -427,7 +427,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       if (figcraft.library) {
         await figcraft.library.close();
         // A file the run made and did not save is not left behind as an empty tab.
-        if (figcraft.library.made && figcraft.library.pin.tab.path === null)
+        if (figcraft.library.made && figcraft.library.pin.path === undefined)
           await closeTab(figcraft.target.control, figcraft.library.pin).catch(() => {});
       }
       await figcraft.target.close();

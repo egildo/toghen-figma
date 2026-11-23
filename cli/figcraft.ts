@@ -46,8 +46,8 @@ import { clearWrites, hasWrites, noWrites, sceneOf, writeSteps, type FcNode, typ
 /** One connection to FigCraft, its control socket or a headless session: one request, one reply, in order. */
 export interface Control {
   call(method: string, params: Record<string, unknown>): Promise<unknown>;
-  /** Opens a file on disk in a tab of its own, or shows it where it is open already; answers nothing. */
-  open(path: string, window?: number): Promise<void>;
+  /** Opens a file on disk in a tab of its own, or shows it where it is open already; answers the tab's index. */
+  open(path: string, window?: number): Promise<number>;
   /** A headless session saves its file, and answers the path saved; the app's file is the person's to save. */
   save?(): Promise<string>;
   /** A headless session's `figcraft-cli` version. */
@@ -104,7 +104,11 @@ export function connect(port: number): Promise<Control> {
       resolve({
         call,
         open: async (path, window) =>
-          void (await call('engine.execute', { command: 'file.open', params: { path }, ...(window !== undefined ? { window } : {}) })),
+          (
+            (await call('engine.execute', { command: 'file.open', params: { path }, ...(window !== undefined ? { window } : {}) })) as {
+              index: number;
+            }
+          ).index,
         close: () => socket.end(),
       });
     });
@@ -206,7 +210,7 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
           method === 'engine.execute'
             ? tool('run_command', { command: params.command, params: params.params ?? {} })
             : Promise.reject(new Error(`A headless FigCraft has no ${method}.`)),
-        open: async (path) => void (await tool('open_file', { path })),
+        open: async (path) => ((await tool('open_file', { path })) as { opened: { index: number } }).opened.index,
         save: async () => ((await tool('save_file', { path: file })) as { path?: string }).path ?? file,
         close,
       };
@@ -218,11 +222,15 @@ export function headless(file: string, cli = process.env.FIGCRAFT_CLI || 'figcra
   })();
 }
 
-/** A tab as `doc.list` lists it. */
+/**
+ * A tab as `doc.list` lists it. Its `id` names the open file (FigCraft 0.18.1); its `path` is listed only to a call that
+ * names no agent, so never to a headless session, whose calls MCP makes for one.
+ */
 interface Tab {
   index: number;
+  id?: number;
   name: string;
-  path: string | null;
+  path?: string | null;
   active: boolean;
 }
 
@@ -230,6 +238,8 @@ interface Tab {
 export interface Pin {
   window?: number;
   tab: Tab;
+  /** Where the file is on disk, as far as the run knows it: none for a file the run made and has not saved. */
+  path?: string;
   /** Set once the file left its tab: every later request is refused before it is sent. */
   lost?: string;
   /** What the writes since the layers were last read touched (`touchedBy`), for the next read to read again. */
@@ -272,7 +282,9 @@ export function touchedBy(into: Touched, steps: readonly Step[], results: readon
   }
 }
 
-const sameFile = (a: Tab, b: Tab | undefined): boolean => b !== undefined && a.name === b.name && a.path === b.path;
+/** Whether `b` is the file `a` was: by its id, or by its name and path where FigCraft lists no id. */
+const sameFile = (a: Tab, b: Tab | undefined): boolean =>
+  b !== undefined && (a.id !== undefined ? a.id === b.id : a.name === b.name && a.path === b.path);
 
 /** FigCraft's front window, when it reports windows: a window id keeps the requests in one window when it has several. */
 async function frontWindow(control: Control): Promise<number | undefined> {
@@ -289,30 +301,29 @@ export async function pinShownFile(control: Control): Promise<Pin> {
   const window = await frontWindow(control);
   const tab = (await tabsIn(control, window)).find((candidate) => candidate.active);
   if (!tab) throw new Error('FigCraft shows no file: open the file to sync into, then run again.');
-  return { ...(window !== undefined ? { window } : {}), tab };
+  return { ...(window !== undefined ? { window } : {}), tab, ...(tab.path ? { path: tab.path } : {}) };
 }
 
 /**
- * The file at `path`, pinned: its tab where it is open, else a tab it is opened in. A file that does not exist yet is a
- * new document named after it, with no path until it is saved there (`made`), which is the caller's to do.
+ * The file at `path`, pinned: its tab where it is open, else a tab it is opened in, by the index the opening answers
+ * either way. A file that does not exist yet is a new document named after it, with no path until it is saved there
+ * (`made`), which is the caller's to do.
  */
 export async function pinPath(control: Control, path: string): Promise<Pin & { made?: true }> {
   const window = await frontWindow(control);
   const at = { ...(window !== undefined ? { window } : {}) };
-  const open = (await tabsIn(control, window)).find((tab) => tab.path === path);
-  if (open) return { ...at, tab: open };
   // FigCraft opens it, or says it is not there (`No such file or directory`); the file system it reads is its own.
-  const missing = await control.open(path, window).then(
-    () => false,
+  const opened = await control.open(path, window).then(
+    (index) => index,
     (error: Error) => {
-      if (/No such file|os error 2/i.test(error.message)) return true;
+      if (/No such file|os error 2/i.test(error.message)) return undefined;
       throw error;
     },
   );
-  if (!missing) {
-    const tab = (await tabsIn(control, window)).find((candidate) => candidate.path === path);
+  if (opened !== undefined) {
+    const tab = (await tabsIn(control, window))[opened];
     if (!tab) throw new Error(`FigCraft did not open ${path}.`);
-    return { ...at, tab };
+    return { ...at, tab, path };
   }
   const { index } = (await control.call('engine.execute', {
     command: 'file.new',
@@ -364,7 +375,7 @@ export async function inFile(control: Control, pin: Pin, label: string, steps: S
  */
 export async function savePinned(control: Control, pin: Pin, path: string): Promise<void> {
   if (pin.lost) throw new Error(pin.lost);
-  const [, , tabs] = (await control.call('engine.execute', {
+  const [, saved, tabs] = (await control.call('engine.execute', {
     command: 'command.batch',
     params: {
       commands: [
@@ -374,13 +385,15 @@ export async function savePinned(control: Control, pin: Pin, path: string): Prom
       ],
     },
     ...(pin.window !== undefined ? { window: pin.window } : {}),
-  })) as [unknown, unknown, Tab[]];
+  })) as [unknown, { path?: string }, Tab[]];
+  // The tab is still the file pinned: by its id, or, where FigCraft lists none, by the path it now has (a save renames it).
   const now = tabs[pin.tab.index];
-  if (now?.path !== path) {
+  if (now === undefined || (pin.tab.id !== undefined ? now.id !== pin.tab.id : now.path !== path)) {
     pin.lost = `FigCraft no longer has "${pin.tab.name}" at the tab it was in: it was not saved at ${path}.`;
     throw new Error(pin.lost);
   }
   pin.tab = now;
+  pin.path = saved.path ?? path;
 }
 
 /** Closes the pinned file's tab, unsaved changes and all: only for a file the run made and did not save. */
@@ -837,7 +850,10 @@ export type FigcraftBridge = Bridge & {
 export async function openFigcraft(at: number | { file: string }, say: Say): Promise<FigcraftBridge> {
   const control = typeof at === 'number' ? await connect(at) : await headless(at.file);
   try {
-    return await bridgeOn(control, await pinShownFile(control), say, true);
+    const pin = await pinShownFile(control);
+    // A headless session's file is the one it opened, or its untitled file, which the run saves there.
+    if (typeof at !== 'number') pin.path = at.file;
+    return await bridgeOn(control, pin, say, true);
   } catch (error) {
     control.close();
     throw error;

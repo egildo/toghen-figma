@@ -71,7 +71,7 @@ describe('a headless run into a .figcraft file', () => {
   it('opens the file, writes every request into it, saves it, and plans nothing on a second run', async () => {
     const first = await sync();
     assert.equal(first.code, 0, first.stderr);
-    assert.match(first.stdout, /Writing into .*design\.figcraft headless, with figcraft-cli 0\.10\.0/);
+    assert.match(first.stdout, /Writing into .*design\.figcraft headless, with figcraft-cli 0\.18\.1/);
     assert.match(first.stdout, /Button: 1 step · 2 created/);
     assert.match(first.stdout, new RegExp(`Saved ${file}\\.`));
 
