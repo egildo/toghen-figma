@@ -148,6 +148,26 @@ describe('a headless run into a .figcraft file', () => {
     assert.ok(!calls().some((call) => call.tool === 'save_file'));
   });
 
+  it('refuses a file, or a library, in a folder that is not there, before it starts figcraft-cli', async () => {
+    const missing = join(folder, 'missing');
+    for (const argv of [
+      ['sync', 'fixtures/sample.resolver.json', ...FILES, '--figcraft-file', join(missing, 'design.figcraft')],
+      ['sync', 'fixtures/sample.resolver.json', ...FILES, '--figcraft-file', file, '--library', join(missing, 'ds.figcraft')],
+    ]) {
+      let stderr = '';
+      const code = await main(argv, {
+        cwd: here,
+        readFile: (path) => readFileSync(path, 'utf8'),
+        stdout: () => {},
+        stderr: (text) => (stderr += text),
+        pairingFile: join(here, 'never-written'),
+      });
+      assert.equal(code, 1);
+      assert.match(stderr, new RegExp(`the folder ${missing} does not exist, so the run could not save .* there; nothing was written`));
+      assert.deepEqual(calls(), []);
+    }
+  });
+
   it('refuses a figcraft-cli older than 0.8.0, whose node.get does not report the stamps', async () => {
     process.env.FAKE_FIGCRAFT_VERSION = '0.7.0';
     const result = await sync();

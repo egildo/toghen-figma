@@ -894,7 +894,7 @@ A `.figcraft` file can be kept in step with no one at the screen. `--figcraft-fi
 ```
 
 1. **Install `figcraft-cli` 0.8.0 or later** on the machine that runs it, the same version as the app you open the file with. An older one is refused: it cannot read back the stamps Toghen keeps in the file. If it is not on the PATH, name it: `FIGCRAFT_CLI=/path/to/figcraft-cli`.
-2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there.
+2. **Run the check, then the build.** The output is a FigCraft run's, followed by `Saved design/ds.figcraft.` A path with no file yet starts a new one there; a folder that does not exist stops the run before it starts, since the file could not be saved there.
 3. **Commit the saved file**, or keep it as the job's artifact.
 
 In a job, as a step:
