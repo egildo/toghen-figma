@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFigmaMock, useFigmaMock } from '../support/figmaMock.js';
 import { run } from '../../main/components/run.js';
-import { desiredFromText } from './support.js';
+import { desiredFromText, runFile } from './support.js';
 
 // The nodes a test reads are the mock's, through the API the engine used.
 type Node = any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -116,5 +116,101 @@ describe('a step that fails removes what it created: new members of a set that e
       'the one appended is out of the set again, and the set reads',
     );
     assert.deepEqual(Object.keys(set.componentPropertyDefinitions), ['kind']);
+  });
+});
+
+/** A synthetic artboard: a frame holding two frames, each with a padding. */
+const sheet = (padding = 4): string => `artboard Sheet
+
+FRAME Sheet layoutMode=VERTICAL {
+    FRAME First layoutMode=VERTICAL paddingLeft=(literal)${padding}
+    FRAME Second layoutMode=VERTICAL paddingLeft=(literal)${padding}
+}
+`;
+
+describe('a step that fails removes what it created: a new artboard', () => {
+  useFigmaMock();
+
+  it('leaves no node when a layer of the artboard fails: the frame and what is in it are removed', async () => {
+    const mock = createFigmaMock().install();
+    mock.failOn('createFrame', 3);
+    await assert.rejects(runFile(mock, sheet(), {}, 'sheet.artboard.kdl'), /injected failure/);
+    assert.deepEqual(topLevel(), []);
+  });
+
+  it('leaves what was on the page alone', async () => {
+    const mock = createFigmaMock().withComponent('Mark').install();
+    mock.failOn('createFrame', 2);
+    await assert.rejects(runFile(mock, sheet(), {}, 'sheet.artboard.kdl'), /injected failure/);
+    assert.deepEqual(
+      topLevel().map((node) => node.name),
+      ['Mark'],
+    );
+  });
+});
+
+describe('an update that fails partway stamps what it wrote', () => {
+  useFigmaMock();
+
+  /** Three members, each with a padding on its inner frame. */
+  const padded = (padding: number): string => `component Probe
+properties {
+    VARIANT kind quiet loud calm
+}
+FRAME Probe layoutMode=VERTICAL {
+    FRAME Inner layoutMode=VERTICAL paddingLeft=(literal)${padding}
+}
+`;
+  const paddings = (set: Node): number[] => (set.children as Node[]).map((member) => member.children[0].paddingLeft);
+
+  it('a set: the next run reads its writes as its own and finishes them, and none is skipped as unchanged', async () => {
+    const mock = createFigmaMock().install();
+    const set = mock.node((await run(desiredFromText(padded(4)))).setId!) as Node;
+    // Each member's patch writes the padding, then the name: the third write is the second member's padding.
+    mock.failOn('node.set', 3);
+    await assert.rejects(run(desiredFromText(padded(8))), /injected failure/);
+    assert.deepEqual(paddings(set), [8, 4, 4], 'the run stopped after the first member');
+
+    const back = await run(desiredFromText(padded(4)), { dryRun: true, skipUnchanged: true });
+    assert.equal(back.unchanged, undefined, 'the fingerprint of the run before the failed one is gone');
+
+    const again = await run(desiredFromText(padded(8)), { dryRun: true });
+    assert.deepEqual(
+      again.steps.filter((step) => step.kind === 'LEAVE'),
+      [],
+      'what the failed run wrote is not taken for a hand edit',
+    );
+    assert.equal(again.steps.filter((step) => step.kind === 'PATCH_LAYER').length, 2);
+
+    await run(desiredFromText(padded(8)));
+    assert.deepEqual(paddings(set), [8, 8, 8]);
+    assert.equal((await run(desiredFromText(padded(8)), { dryRun: true, skipUnchanged: true })).unchanged, true);
+  });
+
+  it('an artboard: the next run reads its writes as its own and finishes them, and it is not skipped as unchanged', async () => {
+    const mock = createFigmaMock().install();
+    const frame = mock.node((await runFile(mock, sheet(4), {}, 'sheet.artboard.kdl')).setId!) as Node;
+    const padding = (): number[] => (frame.children as Node[]).map((layer) => layer.paddingLeft);
+    // Each layer's patch writes the padding, then the name: the third write is the second layer's padding.
+    mock.failOn('node.set', 3);
+    await assert.rejects(runFile(mock, sheet(8), {}, 'sheet.artboard.kdl'), /injected failure/);
+    assert.deepEqual(padding(), [8, 4], 'the run stopped after the first layer');
+
+    const back = await runFile(mock, sheet(4), { dryRun: true, skipUnchanged: true }, 'sheet.artboard.kdl');
+    assert.equal(back.unchanged, undefined, 'the fingerprint of the run before the failed one is gone');
+
+    const again = await runFile(mock, sheet(8), { dryRun: true }, 'sheet.artboard.kdl');
+    assert.deepEqual(
+      again.steps.filter((step) => step.kind === 'LEAVE'),
+      [],
+      'what the failed run wrote is not taken for a hand edit',
+    );
+    assert.deepEqual(
+      again.steps.filter((step) => step.kind === 'PATCH_LAYER').map((step) => step.address),
+      ['Second'],
+    );
+
+    await runFile(mock, sheet(8), {}, 'sheet.artboard.kdl');
+    assert.deepEqual(padding(), [8, 8]);
   });
 });

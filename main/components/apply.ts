@@ -671,13 +671,17 @@ export async function applyCreateArtboard(step: Extract<Step, { kind: 'CREATE_AR
   if (hasText(member.tree)) await figma.loadFontAsync(DEFAULT_FONT);
   for (const style of resolved.textStyles()) await figma.loadFontAsync(style.fontName);
 
-  const frame = figma.createFrame();
-  frame.name = member.tree.name ?? member.tree.address;
-  const build = artboardBuild(frame, member.name, resolved, warnings, []);
-  stampNew(build, frame, member.tree, { artboard: member.name });
-  await applyFields(build, frame, member.tree, true);
-  await buildChildren(build, frame, member.tree);
-  await stampReceipts(build.written);
+  // A failure removes the frame and what is in it before it goes on: an artboard is created whole or not at all.
+  const frame = await orRemoveWhatItMade(resolved.page, [], async () => {
+    const made = figma.createFrame();
+    made.name = member.tree.name ?? member.tree.address;
+    const build = artboardBuild(made, member.name, resolved, warnings, []);
+    stampNew(build, made, member.tree, { artboard: member.name });
+    await applyFields(build, made, member.tree, true);
+    await buildChildren(build, made, member.tree);
+    await stampReceipts(build.written);
+    return made;
+  });
 
   const created: string[] = [];
   const collect = (layer: Layer): void => {

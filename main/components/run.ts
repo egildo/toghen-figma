@@ -127,6 +127,25 @@ async function noteSet(existingId: string | undefined, page: PageNode): Promise<
   noteTouched(node ? pageOf(node) : page);
 }
 
+/**
+ * Applies an update to the set or the artboard `id`. One that fails partway leaves it half-written, which the
+ * fingerprint of the run before no longer describes: it goes, so the next run reads it whole even when told to skip.
+ */
+async function updating<T>(id: string, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    try {
+      const node = await figma.getNodeByIdAsync(id);
+      // An empty fingerprint is none: the stamp keeps no fingerprint.
+      if (node) updateStamp(node as SceneNode, { fingerprint: '' });
+    } catch (_unread) {
+      // The fingerprint is for the next run; the step's own error is the one to report.
+    }
+    throw error;
+  }
+}
+
 export async function run(desired: Desired, options: RunOptions = {}): Promise<Report> {
   // A real run builds against what is in the file. A name only a plan said would exist would be a binding to nothing.
   if (options.pending && !options.dryRun) {
@@ -226,9 +245,10 @@ export async function run(desired: Desired, options: RunOptions = {}): Promise<R
     report.created.push(...applied.created);
     report.warnings.push(...applied.warnings);
   } else if (snapshot.set) {
-    const applied = await (writer
-      ? writer.update(snapshot.set.id, steps, desired, resolved)
-      : applyUpdate(snapshot.set.id, steps, desired, resolved));
+    const setId = snapshot.set.id;
+    const applied = await updating(setId, () =>
+      writer ? writer.update(setId, steps, desired, resolved) : applyUpdate(setId, steps, desired, resolved),
+    );
     report.setId = snapshot.set.id;
     await noteSet(snapshot.set.id, resolved.page);
     report.created.push(...applied.created);
@@ -295,9 +315,10 @@ async function runArtboard(
       await finish(report.setId);
       return report;
     }
-    const applied = await (writer
-      ? writer.updateArtboard(snapshot.artboard.id, steps, desired, resolved)
-      : applyArtboardUpdate(snapshot.artboard.id, steps, desired, resolved));
+    const frameId = snapshot.artboard.id;
+    const applied = await updating(frameId, () =>
+      writer ? writer.updateArtboard(frameId, steps, desired, resolved) : applyArtboardUpdate(frameId, steps, desired, resolved),
+    );
     await noteSet(snapshot.artboard.id, resolved.page);
     report.created.push(...applied.created);
     report.updated.push(...applied.updated);
