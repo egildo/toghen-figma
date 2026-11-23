@@ -268,6 +268,8 @@ Sync styles creates Figma Styles from composite token types.
 
 Figma styles have no modes. A style is therefore built from your document's **default** mode, and the plan warns which modes are not represented; use variables for anything that has to change per mode.
 
+A text style takes its weight from its font style, which is `Regular` unless the token names another in a `fontStyle` member. A `fontWeight` written as a number is not turned into a style name, so the plan says it is not held: `"ds.txt.heading.fontWeight" is 700, which the text style cannot hold: a text style takes its weight from its font style, and the token names none, so the style is "Regular".`
+
 ### Members become bindings
 
 A typography or shadow member that references a token, `"fontSize": "{font.size.md}"` or a shadow layer's `"color": "{color.shade}"`, becomes a **binding** on the style: in Figma the field shows the variable rather than a number, and follows it, including its modes, which the style alone cannot have.
@@ -443,7 +445,7 @@ Every child of the `surface` group is a value of `Tone`, the first child the def
 
 ### A different case or weight is a different text style
 
-A text layer with a `textStyle` takes no `textCase` or weight of its own. Measured in a test file: setting either on a text bound to a text style detaches it from the style, so the style's later edits no longer reach it; the reader refuses a field a text style also sets beside `textStyle`, naming both. A variant that is in capitals, or in a heavier weight, uses **another text style**: make it a typography token (`textTransform: uppercase` becomes the style's case, a heavier `fontWeight` its weight) and switch the layer's style in a `when`:
+A text layer with a `textStyle` takes no `textCase` or weight of its own. Measured in a test file: setting either on a text bound to a text style detaches it from the style, so the style's later edits no longer reach it; the reader refuses a field a text style also sets beside `textStyle`, naming both. A variant that is in capitals, or in a heavier weight, uses **another text style**: make it a typography token (`textTransform: uppercase` becomes the style's case, a heavier weight its `fontStyle`, such as `Bold`) and switch the layer's style in a `when`:
 
 ```kdl
 TEXT Label characters=(property)Label textStyle="{type.label}" {

@@ -354,6 +354,16 @@ export class StyleSyncEngine {
           props.fontFamily = choice.family;
           operations.push({ kind: 'WARNING', message: fallbackNote(path, choice), path });
         }
+        // A literal weight is not mapped to a style name (decisions, *A font stack is a fallback in Figma too*): it is said.
+        const { fontWeight, fontStyle } = token.value as Record<string, unknown>;
+        if (fontWeight !== undefined && fontStyle === undefined && token.memberOf?.fontWeight === undefined)
+          operations.push({
+            kind: 'WARNING',
+            message:
+              `"${path}.fontWeight" is ${String(fontWeight)}, which the text style cannot hold: a text style takes its weight ` +
+              `from its font style, and the token names none, so the style is "${String(props.fontStyle)}".`,
+            path,
+          });
       }
 
       const { bindings, warnings } = planBindings(path, token, route.styleType, props, variableFor);

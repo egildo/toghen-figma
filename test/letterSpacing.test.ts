@@ -169,8 +169,9 @@ describe('StyleSyncEngine — a text style taking its letter spacing from a lett
       assert.equal(letterSpacing.unit, 'PERCENT');
       assert.ok(Math.abs(letterSpacing.value - percent) < 1e-9, `${path}: ${letterSpacing.value}`);
       assert.equal(style.bindings, undefined);
+      // The literal weight's own line is styleSyncEngine.test.ts's.
       assert.deepEqual(
-        operations.filter((op) => op.kind === 'WARNING' && op.path === path),
+        operations.filter((op) => op.kind === 'WARNING' && op.path === path && !op.message.includes('which the text style cannot hold')),
         [],
       );
     }
