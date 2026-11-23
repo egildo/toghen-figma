@@ -66,9 +66,8 @@
       "linter": { "rules": { "correctness": { "noUnsafeOptionalChaining": "off" } } }
     },
     {
-      // Local helpers named after Object.prototype members (`valueOf`, `escape`, `constructor`) shadow nothing they use.
+      // Local helpers named after Object.prototype members (`valueOf`, `constructor`) shadow nothing they use.
       "includes": [
-        "scripts/check-purity.mjs",
         "test/computedValues.test.ts",
         "test/letterSpacing.test.ts",
         "test/purpose.test.ts",
