@@ -12,8 +12,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.1
       '@toghen/lib':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       kdlet:
         specifier: ^0.1.0
         version: 0.1.1
@@ -34,8 +34,8 @@ importers:
         specifier: ^1.142.0
         version: 1.142.0
       '@toghen/ui':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       '@types/node':
         specifier: ^24.1.0
         version: 24.19.2
@@ -411,15 +411,12 @@ packages:
   '@figma/plugin-typings@1.142.0':
     resolution: {integrity: sha512-Loa9P4bUZi/pQejic8OYQSU4Zz9izJdIiDUkkKddq5Bfc5JPRV6pCeg3C8owovbX9lKshaFym86PlMhKZgLeBw==}
 
-  '@phosphor-icons/web@2.1.2':
-    resolution: {integrity: sha512-rPAR9o/bEcp4Cw4DEeZHXf+nlGCMNGkNDRizYHM47NLxz9vvEHp/Tt6FMK1NcWadzw/pFDPnRBGi/ofRya958A==}
-
-  '@toghen/lib@0.1.0':
-    resolution: {integrity: sha512-LO4qN1Le/LyB44k6AIxxOk/hGpjBI94P7xfU6nJpZgAJja4Md7MAB/Iic9SJvLHWzeN4eQG22l/BrizJ2/zPEg==}
+  '@toghen/lib@0.2.0':
+    resolution: {integrity: sha512-akdLt35beNwKkSLqe5K4L9A7awiaCRerrzMrvfeAacOJvkXLi6CctZutZ18S0/e/lr5nyApkJm98v36g1KKUIQ==}
     engines: {node: '>=24'}
 
-  '@toghen/ui@0.1.0':
-    resolution: {integrity: sha512-X3lNF/uud806PLl6U4kAL6cjzu+iME4VYWxyeMfBXr73nxLUNX523vwmRfXPRVfVGF7m9eTbIjlhnYIxL1u7AA==}
+  '@toghen/ui@0.2.0':
+    resolution: {integrity: sha512-nsXSsq8BKAkaBu/WCOmtzSJCmuDUYiODTyTbj5rFbcg3mL9zxuHS2jAdvDlYSiqCmScGp9n0kibKsal1xyLZtg==}
     engines: {node: '>=24'}
 
   '@types/node@24.19.2':
@@ -684,15 +681,11 @@ snapshots:
 
   '@figma/plugin-typings@1.142.0': {}
 
-  '@phosphor-icons/web@2.1.2': {}
-
-  '@toghen/lib@0.1.0':
+  '@toghen/lib@0.2.0':
     dependencies:
       culori: 4.0.2
 
-  '@toghen/ui@0.1.0':
-    dependencies:
-      '@phosphor-icons/web': 2.1.2
+  '@toghen/ui@0.2.0': {}
 
   '@types/node@24.19.2':
     dependencies:

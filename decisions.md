@@ -1726,7 +1726,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Fixed: what the review of 23 November 2026 found (23 November 2026)
 
-**Status:** built; not released yet. The review is house's `.reference/plans/workspace/review-2026-11-23.md`, with the round's plan beside it. Three units worked in parallel: the command line and FigCraft, the engines, and the screen.
+**Status:** done, in 0.1.17. The review is house's `.reference/plans/workspace/review-2026-11-23.md`, with the round's plan beside it. Three units worked in parallel: the command line and FigCraft, the engines, and the screen.
 
 **Main was red, and 0.1.16 was published by hand.**
 
@@ -1817,7 +1817,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Ruled and built: the injected stylesheets lose their whitespace (23 November 2026)
 
-**Status:** built; not released yet.
+**Status:** done, in 0.1.17.
 
 **Where it comes from.** The ruling is on the second question of house's `.reference/plans/workspace/plan-2026-11-23-lightningcss.md`. Egildo answered it on 23 November 2026 with "2b": minify with esbuild, which figma already has. Lightning CSS was not added.
 
