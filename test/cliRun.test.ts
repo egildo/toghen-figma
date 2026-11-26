@@ -1374,8 +1374,8 @@ describe('toghen-figma: the lock from the command line, two plugins on one bridg
     return loadLock();
   };
 
-  /** Pairs a plugin in each file, each with the code printed for its file. */
-  async function pairBoth(run: Started, libraryFile: FigmaMockHandle, targetFile: FigmaMockHandle) {
+  /** The code printed for each file, and the port the run listens on. */
+  async function codesOf(run: Started) {
     const [, libraryCode, targetCode] = await run.waitFor(
       new RegExp(`In the library file "${LIBRARY}", enter (\\S+); in the target file, enter (\\S+)\\.`),
     );
@@ -1383,6 +1383,12 @@ describe('toghen-figma: the lock from the command line, two plugins on one bridg
       /Open the Toghen plugin in each file, type the code into the Source card at the foot of its Load pane, and press Connect\./,
     );
     const port = Number((await run.waitFor(/Waiting for the plugins on ws:\/\/localhost:(\d+)/))[1]);
+    return { port, libraryCode, targetCode };
+  }
+
+  /** Pairs a plugin in each file, each with the code printed for its file. */
+  async function pairBoth(run: Started, libraryFile: FigmaMockHandle, targetFile: FigmaMockHandle) {
+    const { port, libraryCode, targetCode } = await codesOf(run);
     return {
       port,
       libraryCode,
@@ -1403,12 +1409,16 @@ describe('toghen-figma: the lock from the command line, two plugins on one bridg
     const targetFile = createFigmaMock().install();
     const run = start(['sync', 'tokens/resolver.json', 'ui/badge.component.kdl', 'ui/icon.component.kdl', '--library', LIBRARY], library());
 
-    const { port, libraryCode, targetCode, libraryPlugin, targetPlugin } = await pairBoth(run, libraryFile, targetFile);
+    const { port, libraryCode, targetCode } = await codesOf(run);
     assert.notEqual(libraryCode, targetCode);
-    // A wrong code is refused whichever file it was typed for, before and after a plugin paired.
+    // A wrong code is refused whichever file it was typed for, before and after a plugin paired. The target's plugin
+    // connects only once both are refused: with both plugins paired the run goes on, and may end and close every
+    // socket (1006) before a wrong code is answered.
     assert.equal(await connectFakePlugin(port, 'AAAA-AAAA', targetFile).closed, 4001);
+    const libraryPlugin = connectFakePlugin(port, libraryCode, libraryFile);
     await libraryPlugin.paired;
     assert.equal(await connectFakePlugin(port, 'BBBB-BBBB', libraryFile).closed, 4001);
+    const targetPlugin = connectFakePlugin(port, targetCode, targetFile);
     await targetPlugin.paired;
     const result = await run.done;
 
