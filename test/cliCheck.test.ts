@@ -250,6 +250,19 @@ describe('an entry that does not load', () => {
     assert.match(garbled.stderr, /^the entry document "\/repo\/tokens\.resolver\.json" is not JSON\. [^\n]+\n$/);
   });
 
+  it("prints lib's line alone for a file of a list of token files that is missing", async () => {
+    const space = JSON.stringify({ space: { sm: { $type: 'dimension', $value: { value: 4, unit: 'px' } } } });
+    const out = await check(['tokens/space.tokens.json', 'tokens/nope.tokens.json', file], {
+      ...given,
+      '/repo/tokens/space.tokens.json': space,
+    });
+    assert.equal(out.code, 1);
+    assert.equal(
+      out.stderr,
+      `the entry's token file "/repo/tokens/nope.tokens.json" could not be read. no such file /repo/tokens/nope.tokens.json\n`,
+    );
+  });
+
   it('keeps the entry as typed before a message that names no file: a $ref within the document that resolves to nothing', async () => {
     const order = [...DOCUMENT.resolutionOrder, { $ref: '#/nowhere' }];
     const out = await check(['tokens.resolver.json', file], {

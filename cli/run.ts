@@ -104,12 +104,13 @@ export interface Source {
 const entryLabel = (entry: string | string[]): string => (typeof entry === 'string' ? entry : entry.join(', '));
 
 /**
- * An entry that did not load, in a message: lib's line alone where it names the entry's location already (`the entry
- * document "<path>" could not be read. …`, `… is not JSON. …`), and after the entry's label where it names no file.
+ * An entry that did not load, in a message: lib's line alone where it names a file of the entry already (`the entry
+ * document "<path>" could not be read. …`, `the entry's token file "<path>" … is not JSON. …`), and after the entry's
+ * label where it names no file.
  */
 export const notLoaded = (entry: string | string[], error: unknown): string => {
   const { message } = error as Error;
-  return message.startsWith('the entry document "') ? message : `${entryLabel(entry)}: ${message}`;
+  return /^the entry(?: document|'s token file) "/.test(message) ? message : `${entryLabel(entry)}: ${message}`;
 };
 
 /** Loads the entry, reading only what its references reach, and keeps each file read for the plugin. */
