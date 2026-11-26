@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@bgotink/kdl": "^0.4.0",
-    "@toghen/lib": "^0.2.1",
+    "@toghen/lib": "^0.2.2",
     "kdlet": "^0.1.0",
     "kdlet-guards": "^0.1.0",
     "tsx": "^4.20.3",

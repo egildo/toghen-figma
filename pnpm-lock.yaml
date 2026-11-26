@@ -12,8 +12,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.1
       '@toghen/lib':
-        specifier: ^0.2.1
-        version: 0.2.1
+        specifier: ^0.2.2
+        version: 0.2.2
       kdlet:
         specifier: ^0.1.0
         version: 0.1.1
@@ -411,8 +411,8 @@ packages:
   '@figma/plugin-typings@1.142.0':
     resolution: {integrity: sha512-Loa9P4bUZi/pQejic8OYQSU4Zz9izJdIiDUkkKddq5Bfc5JPRV6pCeg3C8owovbX9lKshaFym86PlMhKZgLeBw==}
 
-  '@toghen/lib@0.2.1':
-    resolution: {integrity: sha512-sQGNNG1vaN5xOH9Z8GVpBjwE28oW8uUSkPew6hVTWzFGPT+ggTbt/vIgSZY+/HvFyfDKv0uenYZql8+GBzojEA==}
+  '@toghen/lib@0.2.2':
+    resolution: {integrity: sha512-yFnM44VjAcvrTdswphNxEf3J+uuqAzhzuZ6I5PX6XKqUQnMKWJmDHZLrSyJnMJlBEvJNvta81GdEBw8z5OgzWg==}
     engines: {node: '>=24'}
 
   '@toghen/ui@0.2.0':
@@ -681,7 +681,7 @@ snapshots:
 
   '@figma/plugin-typings@1.142.0': {}
 
-  '@toghen/lib@0.2.1':
+  '@toghen/lib@0.2.2':
     dependencies:
       culori: 4.0.2
 

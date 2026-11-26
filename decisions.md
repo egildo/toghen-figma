@@ -1906,3 +1906,13 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 **What it was.** *pairs each file with its own code* (`test/cliRun.test.ts`, the lock from the command line) sometimes got close code 1006 where it expects 4001, always at its second wrong code, the one sent after the library's plugin paired. Under load, ten copies at once, it failed 8 runs in 30. The test connected both plugins before sending its wrong codes. Once both paired, the run went on, and with the fake plugins' quick answers it could end, and close every socket (`client.terminate()`), before the wrong code was answered: 1006, a socket cut, not a code accepted. The bridge was right. The target's plugin now connects only after both wrong codes are refused; a run with fresh codes waits for every plugin with no time limit. The same check passed 60 runs in 60.
 
 **Closes:** the *Noticed, not fixed* line of the leftovers entry on the bridge flake, and the guess of 23 November that `serve(0)` collides on `::1`. That collision would stop a run with `port … is taken`, which no failing run showed. It stays possible, and was not seen.
+
+## Fixed: a file of a list of token files named once (26 November 2026)
+
+**Status:** built, on the branch `token-file-list`; waits on the merge, and on lib 0.2.2.
+
+**Where it comes from.** The *Noticed, not fixed* line of the leftovers entry on a list of token files with one missing. Egildo said "Fix the token-file list too" the same day.
+
+**Fixed:** the root was lib's. Its line cited the `$ref` of its own wrapper, in a resolver document on no disk. lib 0.2.2 names the file as it names the entry, `the entry's token file "<absolute path>" could not be read. …` (lib's `decisions.md`, the entry of the same title). `notLoaded` prints that line alone too, as ruling 1a prints the entry's. `check` and a `sync` dry run now print `the entry's token file "/…/tokens/nope.tokens.json" could not be read. ENOENT: no such file or directory`, exit 1. Every other load error keeps the entry as typed in front.
+
+**Closes:** the *Noticed, not fixed* line of the leftovers entry on a list of token files.
