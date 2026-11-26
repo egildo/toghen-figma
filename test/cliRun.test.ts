@@ -443,6 +443,14 @@ describe('toghen-figma sync', () => {
     assert.equal(existsSync(run.pairingFile), false, 'no pairing was started');
   });
 
+  it("prints lib's line alone for an entry it cannot read, which names the entry's location, before it waits for a plugin", async () => {
+    const run = start(['sync', 'nope.resolver.json', 'ui/x.component.kdl'], { '/repo/ui/x.component.kdl': '' }, { pairedWaitMs: 10 });
+    const result = await run.done;
+    assert.equal(result.code, 1);
+    assert.equal(result.stderr, 'the entry document "/repo/nope.resolver.json" could not be read. no such file /repo/nope.resolver.json\n');
+    assert.equal(existsSync(run.pairingFile), false, 'no pairing was started');
+  });
+
   it('loads the resolver document a components run takes its axes from, and syncs nothing', async () => {
     const mock = createFigmaMock().withCollection('Tokens', ['default']).withCollection('theme', ['light', 'dark']).install();
     const button = 'component Panel\nproperties {\n    VARIANT Tone (modifier)"theme"\n}\nFRAME Panel layoutMode=VERTICAL\n';

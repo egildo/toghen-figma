@@ -128,7 +128,7 @@ describe('toghen-figma check', () => {
       '/repo/ui/panel.component.kdl': panel('{space.sm}'),
     });
     assert.equal(noResolver.code, 1);
-    assert.match(noResolver.stderr, /^missing\.resolver\.json:/);
+    assert.match(noResolver.stderr, /^the entry document "\/repo\/missing\.resolver\.json" could not be read\./);
     const noFile = await check(['tokens.resolver.json', 'ui/gone.component.kdl'], FILES);
     assert.equal(noFile.code, 1);
     assert.match(noFile.stderr, /^ui\/gone\.component\.kdl cannot be read/);
@@ -231,6 +231,33 @@ describe('toghen-figma check and a folded part', () => {
       '/repo/chip.component.kdl': parts,
     });
     assert.equal(out.code, 0, out.stderr);
+  });
+});
+
+describe('an entry that does not load', () => {
+  const file = 'ui/panel.component.kdl';
+  const given = { [`/repo/${file}`]: panel('{space.sm}') };
+
+  it("prints lib's line alone when it names the entry's location: an entry missing, or not JSON", async () => {
+    const missing = await check(['nope.resolver.json', file], given);
+    assert.equal(missing.code, 1);
+    assert.equal(
+      missing.stderr,
+      'the entry document "/repo/nope.resolver.json" could not be read. no such file /repo/nope.resolver.json\n',
+    );
+    const garbled = await check(['tokens.resolver.json', file], { ...given, '/repo/tokens.resolver.json': '{ not json' });
+    assert.equal(garbled.code, 1);
+    assert.match(garbled.stderr, /^the entry document "\/repo\/tokens\.resolver\.json" is not JSON\. [^\n]+\n$/);
+  });
+
+  it('keeps the entry as typed before a message that names no file: a $ref within the document that resolves to nothing', async () => {
+    const order = [...DOCUMENT.resolutionOrder, { $ref: '#/nowhere' }];
+    const out = await check(['tokens.resolver.json', file], {
+      ...given,
+      '/repo/tokens.resolver.json': JSON.stringify({ ...DOCUMENT, resolutionOrder: order }),
+    });
+    assert.equal(out.code, 1);
+    assert.equal(out.stderr, 'tokens.resolver.json: $ref "#/nowhere" could not be resolved within the document.\n');
   });
 });
 

@@ -101,7 +101,16 @@ export interface Source {
 }
 
 /** The label of an entry in a message: its paths as typed, in order. */
-export const entryLabel = (entry: string | string[]): string => (typeof entry === 'string' ? entry : entry.join(', '));
+const entryLabel = (entry: string | string[]): string => (typeof entry === 'string' ? entry : entry.join(', '));
+
+/**
+ * An entry that did not load, in a message: lib's line alone where it names the entry's location already (`the entry
+ * document "<path>" could not be read. …`, `… is not JSON. …`), and after the entry's label where it names no file.
+ */
+export const notLoaded = (entry: string | string[], error: unknown): string => {
+  const { message } = error as Error;
+  return message.startsWith('the entry document "') ? message : `${entryLabel(entry)}: ${message}`;
+};
 
 /** Loads the entry, reading only what its references reach, and keeps each file read for the plugin. */
 export async function readSource(entry: string | string[], io: Io, { name, overrides: mapFile }: LoadArguments = {}): Promise<Source> {
@@ -310,7 +319,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
     try {
       source = await readSource(entry, io, args);
     } catch (error) {
-      io.stderr(`${entryLabel(entry)}: ${(error as Error).message}\n`);
+      io.stderr(`${notLoaded(entry, error)}\n`);
       return 1;
     }
   }

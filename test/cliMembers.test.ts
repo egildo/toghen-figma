@@ -85,6 +85,12 @@ describe('toghen-figma members', () => {
     assert.deepEqual(file.members, []);
   });
 
+  it("prints lib's line alone for an entry it cannot read, which names the entry's location", async () => {
+    const out = await members(['nope.resolver.json', 'chip.component.kdl'], { '/repo/chip.component.kdl': chip });
+    assert.equal(out.code, 1);
+    assert.equal(out.stderr, 'the entry document "/repo/nope.resolver.json" could not be read. no such file /repo/nope.resolver.json\n');
+  });
+
   it('takes the entry and at least one file', async () => {
     assert.equal((await members(['tokens.resolver.json'], FILES)).code, 1);
   });
