@@ -245,7 +245,7 @@ describe('a library run into FigCraft', () => {
       said((await sync()).stdout, `The library ${typed} is already published as version 1: nothing to publish.`);
       said(
         (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
-        `Dry run: "target" has 0 updates from ${typed} waiting; a run would publish the library first, then accept them.`,
+        `Dry run: "target" has 0 updates from ${typed} waiting; a run would accept them, then write the lock.`,
       );
       // A path FigCraft lists is nobody's typing: it is printed as FigCraft gives it.
       const moved = join(folder, 'elsewhere', 'ds.figcraft');
@@ -254,6 +254,31 @@ describe('a library run into FigCraft', () => {
         (await command(['lock', relative(here, moved), '--figcraft', port, '--dry-run'])).stdout,
         `Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${relative(here, moved)}.`,
       );
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('says in a dry run what the run would do: one that builds publishes the library first, and lock publishes nothing', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const port = String(fake.port);
+    const said = (stdout: string, line: string) => assert.ok(stdout.includes(`${line}\n`), `${line}\nnot in:\n${stdout}`);
+    const sync = (flags: string[] = []) =>
+      command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', port, '--library', LIBRARY, ...flags]);
+    try {
+      assert.equal((await sync()).code, 0);
+      const built = await sync(['--dry-run']);
+      assert.equal(built.code, 0, built.stdout + built.stderr);
+      said(
+        built.stdout,
+        `Dry run: "target" has 0 updates from ${LIBRARY} waiting; a run would publish the library first, then accept them.`,
+      );
+      said(built.stdout, 'Dry run: the library was not published or saved, and the lock in the target was not written.');
+      const locked = await command(['lock', LIBRARY, '--figcraft', port, '--dry-run']);
+      assert.equal(locked.code, 0, locked.stderr);
+      said(locked.stdout, `Dry run: "target" has 0 updates from ${LIBRARY} waiting; a run would accept them, then write the lock.`);
+      said(locked.stdout, 'Dry run: the lock in the target was not written.');
+      assert.doesNotMatch(locked.stdout, /publish/);
     } finally {
       await fake.close();
     }
