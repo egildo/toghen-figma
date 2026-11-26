@@ -7,6 +7,9 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { main, type Io } from '../cli/main.js';
 import { checkComponentFiles } from '../main/components/file.js';
 import { Resolver, type ResolverDocument } from '@toghen/lib';
@@ -237,5 +240,18 @@ describe("the plugin's check given a resolver", () => {
     const problems = checkComponentFiles([{ fileName: 'panel.component.kdl', text: panel('{space.xl}') }], { names: true }, resolver);
     assert.equal(problems.length, 1);
     assert.match(problems[0], /^panel\.component\.kdl:2:\d+ token \{space\.xl\} is not in the design system/);
+  });
+});
+
+describe("the command's own reader", () => {
+  it("gives Node's reason for a file it cannot read without the path, which the message names as typed", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const run = spawnSync(
+      process.execPath,
+      [join(here, '..', 'cli', 'bin.mjs'), 'check', 'fixtures/sample.resolver.json', 'fixtures/missing.component.kdl'],
+      { cwd: here, encoding: 'utf8' },
+    );
+    assert.equal(run.status, 1, run.stderr);
+    assert.equal(run.stderr, 'fixtures/missing.component.kdl cannot be read: ENOENT: no such file or directory\n');
   });
 });

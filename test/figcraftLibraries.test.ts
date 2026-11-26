@@ -9,7 +9,7 @@ import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main, type Io } from '../cli/main.js';
 import { lockedFrom } from '../cli/figcraftLibrary.js';
@@ -220,6 +220,40 @@ describe('a library run into FigCraft', () => {
         'the same library, at its new path',
       );
       assert.match((await command(['lock', moved, '--figcraft', String(fake.port), '--dry-run'])).stdout, /has 0 updates from .* waiting/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('names the library by its path as typed, and sends FigCraft the absolute path', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const typed = relative(here, LIBRARY);
+    const port = String(fake.port);
+    const said = (stdout: string, line: string) => assert.ok(stdout.includes(`${line}\n`), `${line}\nnot in:\n${stdout}`);
+    try {
+      said(
+        (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: ${typed} is not enabled in "target"; a run would enable it.`,
+      );
+      const sync = () => command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', port, '--library', typed]);
+      const first = await sync();
+      assert.equal(first.code, 0, first.stderr);
+      said(first.stdout, `Published the library ${typed} as version 1, and saved it.`);
+      said(first.stdout, `Enabled ${typed} in "target", with no update to accept.`);
+      assert.ok(fake.disk.has(LIBRARY), 'saved at the absolute path');
+      assert.equal(fake.tabs[0].libraries![0].path, LIBRARY, 'enabled at the absolute path');
+      said((await sync()).stdout, `The library ${typed} is already published as version 1: nothing to publish.`);
+      said(
+        (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: "target" has 0 updates from ${typed} waiting; a run would publish the library first, then accept them.`,
+      );
+      // A path FigCraft lists is nobody's typing: it is printed as FigCraft gives it.
+      const moved = join(folder, 'elsewhere', 'ds.figcraft');
+      fake.disk.set(moved, fake.disk.get(LIBRARY));
+      said(
+        (await command(['lock', relative(here, moved), '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${relative(here, moved)}.`,
+      );
     } finally {
       await fake.close();
     }

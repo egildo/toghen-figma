@@ -8,7 +8,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main, type Io } from '../cli/main.js';
 import { startFakeFigcraft, type FakeFigcraft } from './support/fakeFigcraft.js';
@@ -106,6 +106,17 @@ describe('a headless run into a .figcraft file', () => {
     assert.ok(!made.some((call) => call.tool === 'open_file'));
     assert.deepEqual(made.at(-1), { tool: 'save_file', arguments: { path: file } });
     assert.ok(fake.tabs[0].variables.length > 40, "written into the session's untitled file, which the save names");
+  });
+
+  it('says the file it saved as its path was typed, and has FigCraft open and save the absolute path', async () => {
+    const typed = relative(here, file);
+    // The flag given again is the one taken.
+    const result = await sync('--figcraft-file', typed);
+    assert.equal(result.code, 0, result.stderr);
+    assert.ok(result.stdout.endsWith(`Saved ${typed}.\n`), result.stdout);
+    const made = calls();
+    assert.deepEqual(made[0], { tool: 'open_file', arguments: { path: file } });
+    assert.deepEqual(made.at(-1), { tool: 'save_file', arguments: { path: file } });
   });
 
   it('saves nothing in a dry run', async () => {

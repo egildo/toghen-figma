@@ -377,7 +377,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
           throw new Error(`The target is the library ${args.library} itself: show, or name, the file that uses it.`);
         // `lock` builds nothing, so it needs only the target; a build happens in the library file.
         if (args.entry !== undefined || args.files.length > 0) {
-          const pin = await pinPath(opened.control, path);
+          const pin = await pinPath(opened.control, path, args.library);
           const library = Object.assign(await bridgeOn(opened.control, pin, io, false), pin.made ? { made: true as const } : {});
           figcraft.library = library;
           bridge = library;
@@ -408,7 +408,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       const target = bridge as FigcraftBridge;
       for (const use of args.uses) {
         const path = resolve(io.cwd, use);
-        const entry = lockedFrom(await enable(target.control, target.pin, path, false, io), 'command line');
+        const entry = lockedFrom(await enable(target.control, target.pin, path, use, false, io), 'command line');
         const written = await target.request({ type: 'LOCK_WRITE', payload: { library: libraryName(path), entry } }, ['LOCK']);
         if (written.type === 'ERROR') throw new Error(`The lock in "${target.pin.tab.name}" was not written: ${written.payload.message}`);
         io.stdout(`Using ${use}: the lock in "${target.pin.tab.name}" holds "${libraryName(path)}", ${counted(entry)}.\n`);
@@ -424,8 +424,10 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
     }
     // A headless file is saved whole or not at all: a run that stopped partway, or wrote nothing, leaves it as it was.
     if (save && !args.dryRun) {
-      if (built === 0) io.stdout(`Saved ${await save()}.\n`);
-      else io.stderr(`${args.figcraftFile} was not saved: the run did not complete.\n`);
+      if (built === 0) {
+        await save();
+        io.stdout(`Saved ${args.figcraftFile}.\n`);
+      } else io.stderr(`${args.figcraftFile} was not saved: the run did not complete.\n`);
     }
     if (figcraft || args.library === undefined || target === undefined) return built;
     if (built !== 0) {
@@ -467,16 +469,16 @@ async function finishFigcraftLibrary(
   if (dryRun) {
     // A moved library is found by the id the lock holds for it, not at the path it was enabled from.
     const lock = await target.request({ type: 'GET_LOCK', payload: {} }, ['LOCK']);
-    await describeTarget(control, target.pin, path, lock.type === 'LOCK' ? lock.payload.libraries[name]?.id : undefined, io);
+    await describeTarget(control, target.pin, path, given, lock.type === 'LOCK' ? lock.payload.libraries[name]?.id : undefined, io);
     io.stdout('Dry run: the library was not published or saved, and the lock in the target was not written.\n');
     return 0;
   }
   if (library) {
     // The library's own record goes in first, so the file saved holds it.
     await library.flush();
-    await publish(control, library.pin, path, io);
+    await publish(control, library.pin, path, given, io);
   }
-  const listed = await enable(control, target.pin, path, true, io);
+  const listed = await enable(control, target.pin, path, given, true, io);
   const entry = lockedFrom(listed, by);
   const written = await target.request({ type: 'LOCK_WRITE', payload: { library: name, entry } }, ['LOCK']);
   if (written.type === 'ERROR') {

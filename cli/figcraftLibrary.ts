@@ -72,12 +72,15 @@ interface Say {
   stdout(text: string): void;
 }
 
+// Each function below takes the library's path twice: `path`, absolute, which FigCraft is sent, and `given`, as the
+// person typed it, which the lines print (reference.md, *The command line*).
+
 /**
  * Publishes the pinned library file and saves it at `path`, since a library is seen by other files only once saved.
  * FigCraft refuses a publish with nothing changed since the last (measured, 0.10.0: `no changes to publish since
  * version N`); that is a library already in step, not a failure, so the run says so and goes on to the target.
  */
-export async function publish(control: Control, pin: Pin, path: string, say: Say): Promise<number> {
+export async function publish(control: Control, pin: Pin, path: string, given: string, say: Say): Promise<number> {
   let version: number;
   let said: string;
   try {
@@ -85,15 +88,15 @@ export async function publish(control: Control, pin: Pin, path: string, say: Say
       { version: number },
     ];
     version = published.version;
-    said = `Published the library ${path} as version ${version}, and saved it.\n`;
+    said = `Published the library ${given} as version ${version}, and saved it.\n`;
   } catch (error) {
     const unchanged = /no changes to publish since version (\d+)/.exec(error instanceof Error ? error.message : String(error));
     if (!unchanged) throw error;
     version = Number(unchanged[1]);
-    said = `The library ${path} is already published as version ${version}: nothing to publish.\n`;
+    said = `The library ${given} is already published as version ${version}: nothing to publish.\n`;
   }
   // Said once the save is done: a save that fails is the run's error, and nothing claims it.
-  await savePinned(control, pin, path);
+  await savePinned(control, pin, path, given);
   say.stdout(said);
   return version;
 }
@@ -110,7 +113,7 @@ async function listed(control: Control, target: Pin, path: string, id?: string):
  * In the target: enables the library at `path` (or points it there after a move: the same id at a new path), accepts
  * that library's updates when asked, and answers its listing, from which the lock is written.
  */
-export async function enable(control: Control, target: Pin, path: string, accept: boolean, say: Say): Promise<FcLibrary> {
+export async function enable(control: Control, target: Pin, path: string, given: string, accept: boolean, say: Say): Promise<FcLibrary> {
   const [added] = (await inFile(control, target, 'Enable library', [{ command: 'library.add', params: { path } }])) as [{ id: string }];
   const [updates] = (await inFile(control, target, 'Read', [{ command: 'library.updates', params: {} }])) as [
     { libraries: Array<{ id: string; components: unknown[]; styles: unknown[]; variables: unknown[]; collections: unknown[] }> },
@@ -121,14 +124,14 @@ export async function enable(control: Control, target: Pin, path: string, accept
     if (count > 0)
       await inFile(control, target, 'Accept library updates', [{ command: 'library.acceptUpdates', params: { ids: [added.id] } }]);
     say.stdout(
-      `Enabled ${path} in "${target.tab.name}"${count > 0 ? `, and accepted ${plural(count, 'update')} from it` : ', with no update to accept'}.\n`,
+      `Enabled ${given} in "${target.tab.name}"${count > 0 ? `, and accepted ${plural(count, 'update')} from it` : ', with no update to accept'}.\n`,
     );
   } else if (count > 0)
     say.stdout(
-      `${path} has ${plural(count, 'update')} for "${target.tab.name}" not accepted: a run with --library accepts them, or lock does.\n`,
+      `${given} has ${plural(count, 'update')} for "${target.tab.name}" not accepted: a run with --library accepts them, or lock does.\n`,
     );
   const library = await listed(control, target, path, added.id);
-  if (!library) throw new Error(`FigCraft does not list the library ${path} in "${target.tab.name}" after enabling it.`);
+  if (!library) throw new Error(`FigCraft does not list the library ${given} in "${target.tab.name}" after enabling it.`);
   return library;
 }
 
@@ -136,14 +139,21 @@ export async function enable(control: Control, target: Pin, path: string, accept
  * What a dry run says of the target: whether the library is enabled there, found by the id the target's lock holds for
  * it when it holds one; at another path, when it moved; and the updates waiting from it.
  */
-export async function describeTarget(control: Control, target: Pin, path: string, id: string | undefined, say: Say): Promise<void> {
+export async function describeTarget(
+  control: Control,
+  target: Pin,
+  path: string,
+  given: string,
+  id: string | undefined,
+  say: Say,
+): Promise<void> {
   const library = await listed(control, target, path, id);
-  if (!library) return say.stdout(`Dry run: ${path} is not enabled in "${target.tab.name}"; a run would enable it.\n`);
+  if (!library) return say.stdout(`Dry run: ${given} is not enabled in "${target.tab.name}"; a run would enable it.\n`);
   if (library.path !== undefined && library.path !== path)
-    return say.stdout(`Dry run: "${target.tab.name}" has the library at ${library.path}; a run would point it at ${path}.\n`);
-  if (library.error) return say.stdout(`Dry run: "${target.tab.name}" cannot read ${path}: ${library.error}\n`);
+    return say.stdout(`Dry run: "${target.tab.name}" has the library at ${library.path}; a run would point it at ${given}.\n`);
+  if (library.error) return say.stdout(`Dry run: "${target.tab.name}" cannot read ${given}: ${library.error}\n`);
   say.stdout(
-    `Dry run: "${target.tab.name}" has ${plural(library.updates ?? 0, 'update')} from ${path} waiting; a run would publish the library first, then accept them.\n`,
+    `Dry run: "${target.tab.name}" has ${plural(library.updates ?? 0, 'update')} from ${given} waiting; a run would publish the library first, then accept them.\n`,
   );
 }
 
