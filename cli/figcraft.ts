@@ -902,8 +902,11 @@ export type FigcraftBridge = Bridge & {
 export async function openFigcraft(at: number | { file: string }, say: Say): Promise<FigcraftBridge> {
   const control = typeof at === 'number' ? await connect(at) : await headless(at.file);
   try {
+    // A headless session's file is the one it opened, or its untitled file, which the run saves there: named first as the
+    // save would name it, as `pinPath` names a new file, so that every line names it as a later run's does.
+    if (typeof at !== 'number' && !existsSync(at.file))
+      await control.call('engine.execute', { command: 'file.rename', params: { name: basename(at.file).replace(/\.figcraft$/i, '') } });
     const pin = await pinShownFile(control);
-    // A headless session's file is the one it opened, or its untitled file, which the run saves there.
     if (typeof at !== 'number') pin.path = at.file;
     return await bridgeOn(control, pin, say, true);
   } catch (error) {

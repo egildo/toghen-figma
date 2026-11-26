@@ -104,8 +104,10 @@ describe('a headless run into a .figcraft file', () => {
     assert.equal(result.code, 0, result.stderr);
     const made = calls();
     assert.ok(!made.some((call) => call.tool === 'open_file'));
+    // Named first, as the save would name it.
+    assert.deepEqual(made[0], { tool: 'run_command', arguments: { command: 'file.rename', params: { name: 'design' } } });
     assert.deepEqual(made.at(-1), { tool: 'save_file', arguments: { path: file } });
-    assert.ok(fake.tabs[0].variables.length > 40, "written into the session's untitled file, which the save names");
+    assert.ok(fake.tabs[0].variables.length > 40, "written into the session's untitled file");
   });
 
   it('says the file it saved as its path was typed, and has FigCraft open and save the absolute path', async () => {
