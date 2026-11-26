@@ -197,6 +197,36 @@ describe('a library run into FigCraft', () => {
     }
   });
 
+  it("finds a library moved to another folder by the id the target's lock holds: a dry run says a run would point it there, and the run does", async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const moved = join(folder, 'moved', 'ds.figcraft');
+    try {
+      assert.equal(
+        (await command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', String(fake.port), '--library', LIBRARY]))
+          .code,
+        0,
+      );
+      const id = lockIn(fake, 0).libraries.ds.id;
+      // The folder moved: the library's file is at its new path only, and the target still enables it at the old one.
+      fake.disk.set(moved, fake.disk.get(LIBRARY));
+      fake.disk.delete(LIBRARY);
+      const dry = await command(['lock', moved, '--figcraft', String(fake.port), '--dry-run']);
+      assert.equal(dry.code, 0, dry.stderr);
+      assert.ok(dry.stdout.includes(`Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${moved}.\n`), dry.stdout);
+      assert.equal(fake.tabs[0].libraries![0].path, LIBRARY, 'a dry run points nothing');
+      const locked = await command(['lock', moved, '--figcraft', String(fake.port)]);
+      assert.equal(locked.code, 0, locked.stderr);
+      assert.deepEqual(
+        fake.tabs[0].libraries!.map((library) => [library.id, library.path]),
+        [[id, moved]],
+        'the same library, at its new path',
+      );
+      assert.match((await command(['lock', moved, '--figcraft', String(fake.port), '--dry-run'])).stdout, /has 0 updates from .* waiting/);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it('refuses a target that is the library itself', async () => {
     const fake = await startFakeFigcraft(['ds']);
     fake.tabs[0].path = LIBRARY;

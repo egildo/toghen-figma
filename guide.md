@@ -880,7 +880,7 @@ In FigCraft a library is a `.figcraft` file published as one. Publishing and acc
 3. **When the library changes**, run `kit` again: the change is published and accepted. If the library made a component again rather than changing it in place, FigCraft treats it as another component. The next `app` run then swaps each instance Toghen made (`swap Glyph`), and leaves the instances you placed.
 
 - **`toghen-figma lock design/kit.figcraft --figcraft 7979`** builds nothing: it enables the library, accepts its updates and writes the lock. Use it after publishing a library by hand.
-- **A moved library is the same library.** It keeps its id in its file. Give `--library` or `--use` its new path, and the file that uses it points there again, keeping every instance.
+- **A moved library is the same library.** It keeps its id in its file. Give `--library` or `--use` its new path, and the file that uses it points there again, keeping every instance. A dry run says it would.
 - **Headless**, the same with `--figcraft-file design/app.figcraft` in place of `--figcraft 7979`. Both files are opened in one session, and the file that uses the library is saved last.
 - **Team libraries**, kept on a `figcraft-server`, are not built: a share link is refused.
 

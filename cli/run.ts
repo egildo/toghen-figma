@@ -463,8 +463,11 @@ async function finishFigcraftLibrary(
 ): Promise<number> {
   const { target, library, path } = figcraft;
   const control = target.control;
+  const name = libraryName(path);
   if (dryRun) {
-    await describeTarget(control, target.pin, path, io);
+    // A moved library is found by the id the lock holds for it, not at the path it was enabled from.
+    const lock = await target.request({ type: 'GET_LOCK', payload: {} }, ['LOCK']);
+    await describeTarget(control, target.pin, path, lock.type === 'LOCK' ? lock.payload.libraries[name]?.id : undefined, io);
     io.stdout('Dry run: the library was not published or saved, and the lock in the target was not written.\n');
     return 0;
   }
@@ -474,7 +477,6 @@ async function finishFigcraftLibrary(
     await publish(control, library.pin, path, io);
   }
   const listed = await enable(control, target.pin, path, true, io);
-  const name = libraryName(path);
   const entry = lockedFrom(listed, path, by);
   const written = await target.request({ type: 'LOCK_WRITE', payload: { library: name, entry } }, ['LOCK']);
   if (written.type === 'ERROR') {
