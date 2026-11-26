@@ -111,11 +111,16 @@ export function restack(nodes: TopLevel[]): Plan {
   return plan;
 }
 
-/** What a dry run says of a page: which sets a run would restack, and which were moved by hand and would stay. No positions: the sizes of the sets it would build are not known until they are built. */
+/**
+ * What a dry run says of a page: which sets the restack at today's sizes would move, and which were moved by hand and
+ * would stay. No positions: the sizes of the sets it would build are not known until they are built, and a set it makes
+ * larger can push others further.
+ */
 export function describeStack(page: string, nodes: TopLevel[]): string[] {
   const sorted = sortTopLevel(nodes);
+  const { moves } = restack(nodes);
   const lines: string[] = [];
-  if (sorted.stack.length > 0) lines.push(`page "${page}": a run would restack ${quoted(sorted.stack.map((node) => node.name))}`);
+  if (moves.length > 0) lines.push(`page "${page}": a run would restack ${quoted(moves.map((move) => move.name))}`);
   if (sorted.byHand.length > 0)
     lines.push(
       `page "${page}": ${quoted(sorted.byHand.map((node) => node.name))} ${sorted.byHand.length === 1 ? 'was' : 'were'} moved by hand and would be left where ${sorted.byHand.length === 1 ? 'it is' : 'they are'}`,

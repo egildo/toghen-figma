@@ -133,17 +133,23 @@ describe('restack: which sets are Toghen’s, and where the stack goes', () => {
 });
 
 describe('restack: what a dry run says', () => {
-  it('names the sets a run would restack and those moved by hand, without positions', () => {
+  it('names only the sets a run would move, and those moved by hand, without positions', () => {
+    // A and B are where the stack puts them; C is not, with nothing between B and it.
     const lines = describeStack('Components', [
       placedAt(node('A', 0, 100)),
       placedAt(node('B', 200, 60)),
+      placedAt(node('C', 700, 60)),
       { ...placedAt(node('H', 500, 60)), placed: { x: 7, y: 7 } },
       node('Dot', 900, 10, { toghen: false }),
     ]);
     assert.deepEqual(lines, [
-      'page "Components": a run would restack "A", "B"',
+      'page "Components": a run would restack "C"',
       'page "Components": "H" was moved by hand and would be left where it is',
     ]);
+  });
+
+  it('says nothing of a page whose sets are where a run would put them', () => {
+    assert.deepEqual(describeStack('Components', [placedAt(node('A', 0, 100)), placedAt(node('B', 200, 60))]), []);
   });
 
   it('says nothing of a page with no set on it', () => {
@@ -397,7 +403,37 @@ FRAME ${name} layoutMode=NONE width=(literal)80 height=(literal)${height}
     assert.deepEqual(finished, { removed: [], moved: [], notes: [] });
   });
 
-  it('says in a dry run which sets it would restack, writes nothing, and gives no positions', async () => {
+  it('says nothing of the page in a dry run after a real run', async () => {
+    const mock = createFigmaMock().install();
+    beginRun();
+    await build(mock, 'A', 60);
+    await build(mock, 'B', 60);
+    await finishRun({});
+
+    beginRun();
+    await run(desiredFromText(sized('A', 80)), { dryRun: true });
+    const finished = await finishRun({ dryRun: true });
+
+    assert.deepEqual(finished.notes, [], 'at today’s sizes, a run would move nothing');
+  });
+
+  it('names in a dry run the sets that a set made taller in the document pushes down, without positions', async () => {
+    const mock = createFigmaMock().install();
+    beginRun();
+    const a = await build(mock, 'A', 60);
+    await build(mock, 'B', 60);
+    await build(mock, 'C', 60);
+    await finishRun({});
+    a.resize(a.width, 200);
+
+    beginRun();
+    await run(desiredFromText(sized('C', 80)), { dryRun: true });
+    const finished = await finishRun({ dryRun: true });
+
+    assert.deepEqual(finished.notes, ['page "Page 1": a run would restack "B", "C"']);
+  });
+
+  it('says in a dry run which sets were moved by hand, writes nothing, and gives no positions', async () => {
     const mock = createFigmaMock().install();
     beginRun();
     const a = await build(mock, 'A', 60);
@@ -411,10 +447,7 @@ FRAME ${name} layoutMode=NONE width=(literal)80 height=(literal)${height}
     const writes = mock.writes().length;
     const finished = await finishRun({ dryRun: true });
 
-    assert.deepEqual(finished.notes, [
-      'page "Page 1": a run would restack "A"',
-      'page "Page 1": "B" was moved by hand and would be left where it is',
-    ]);
+    assert.deepEqual(finished.notes, ['page "Page 1": "B" was moved by hand and would be left where it is']);
     assert.deepEqual(finished.moved, []);
     assert.equal(mock.writes().length, writes);
     assert.deepEqual(
