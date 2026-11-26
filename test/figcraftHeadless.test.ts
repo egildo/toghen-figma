@@ -95,7 +95,7 @@ describe('a headless run into a .figcraft file', () => {
     const second = await sync();
     assert.equal(second.code, 0, second.stderr);
     assert.match(second.stdout, /Variable plan: 0 creates · 0 updates/);
-    assert.match(second.stdout, /Button: 1 step · 0 created · 0 updated · 0 deleted/);
+    assert.match(second.stdout, /Button: 0 steps · 0 created · 0 updated · 0 deleted/);
   });
 
   it('makes the file when there is none yet', async () => {

@@ -95,8 +95,8 @@ describe('component files into FigCraft, end to end', () => {
       const labels = fake.labels.length;
       const second = await sync(fake);
       assert.equal(second.code, 0, second.stderr);
-      assert.match(second.stdout, /Icon: 1 step · 0 created · 0 updated · 0 deleted/);
-      assert.match(second.stdout, /Button: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match(second.stdout, /Icon: 0 steps · 0 created · 0 updated · 0 deleted/);
+      assert.match(second.stdout, /Button: 0 steps · 0 created · 0 updated · 0 deleted/);
       assert.doesNotMatch(second.stdout, /moved "/, 'every set is where the first run put it');
       assert.match(second.stdout, /Showcase: 0 steps/);
       assert.doesNotMatch(second.stdout, /changed in Figma/);
@@ -180,7 +180,7 @@ describe('component files into FigCraft, end to end', () => {
       assert.equal(hint().characters, 'Send');
       assert.equal(hint().hidden?.refs?.characters, null, 'unwired');
       assert.deepEqual(JSON.parse(hint().pluginData!['toghen.unreported']), {});
-      assert.match((await run('(literal)"Send"')).stdout, /Tag: 1 step · 0 created · 0 updated/);
+      assert.match((await run('(literal)"Send"')).stdout, /Tag: 0 steps · 0 created · 0 updated/);
     } finally {
       await fake.close();
     }
@@ -258,7 +258,7 @@ describe('component files into FigCraft, end to end', () => {
       );
       assert.equal(node.boundVariables.strokeWeight, undefined, 'strokeWeight is never bound beside a side of its own');
       assert.equal(node.strokeSides[0], 0);
-      assert.match((await run()).stdout, /Tab: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match((await run()).stdout, /Tab: 0 steps · 0 created · 0 updated · 0 deleted/);
 
       // A hand edit of one corner lets FigCraft's corner variables go; --overwrite-drift writes them back, every one bound again.
       node.cornerRadius = [8, 8, 0, 2];
@@ -300,7 +300,7 @@ describe('component files into FigCraft, end to end', () => {
       );
       assert.equal(node.boundVariables['layoutGrids/0/gutter'], id('spacing/sm'));
       assert.equal(node.boundVariables['layoutGrids/0/offset'], id('spacing/xs'));
-      assert.match((await run()).stdout, /Card: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match((await run()).stdout, /Card: 0 steps · 0 created · 0 updated · 0 deleted/);
 
       // A hand edit of the blur is drift, kept and said.
       node.effects[1].radius = 9;
@@ -351,7 +351,7 @@ describe('component files into FigCraft, end to end', () => {
       assert.equal(panel.blend, 'multiply');
       assert.equal(panel.hidden!.fields!.cornerSmoothing, 0.6);
       assert.deepEqual(JSON.parse(panel.pluginData!['toghen.unreported']).fields, { blendMode: 'MULTIPLY', cornerSmoothing: 0.6 });
-      assert.match((await run()).stdout, /Panel: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match((await run()).stdout, /Panel: 0 steps · 0 created · 0 updated · 0 deleted/);
 
       // A hand edit FigCraft reports is drift; one it does not report goes unseen, as the specs say.
       child('Row').dashes = [1, 1];
@@ -396,7 +396,7 @@ describe('component files into FigCraft, end to end', () => {
 
       const second = await run();
       assert.equal(second.code, 0, second.stderr);
-      assert.match(second.stdout, /Holder: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match(second.stdout, /Holder: 0 steps · 0 created · 0 updated · 0 deleted/);
       assert.match(second.stdout, /Shelf: 0 steps/);
       assert.doesNotMatch(second.stdout, /changed in Figma/);
     } finally {
@@ -538,7 +538,7 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
       const second = await sync(fake);
       assert.equal(second.code, 0, second.stderr);
       assert.doesNotMatch(second.stdout, /ambiguous|moved|changed in Figma/);
-      assert.match(second.stdout, /Button: 1 step · 0 created · 0 updated · 0 deleted/);
+      assert.match(second.stdout, /Button: 0 steps · 0 created · 0 updated · 0 deleted/);
     } finally {
       await fake.close();
     }
@@ -601,8 +601,8 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
       assert.equal(first.code, 0, first.stderr);
       assert.match(first.stdout, /Veil: 1 step · 2 created/);
       const labels = fake.labels.length;
-      read(fake, await run(['--dry-run']), /Veil \(dry run\): 1 step · 0 would create · 0 would update · 0 would delete/, labels);
-      read(fake, await run(), /Veil: 1 step · 0 created · 0 updated · 0 deleted/, labels);
+      read(fake, await run(['--dry-run']), /Veil \(dry run\): 0 steps · 0 would create · 0 would update · 0 would delete/, labels);
+      read(fake, await run(), /Veil: 0 steps · 0 created · 0 updated · 0 deleted/, labels);
     } finally {
       await fake.close();
     }
@@ -639,12 +639,12 @@ FRAME Picker layoutMode=VERTICAL layoutSizingHorizontal=HUG layoutSizingVertical
     try {
       assert.equal((await run()).code, 0);
       const labels = fake.labels.length;
-      read(fake, await run(), /Pill: 1 step · 0 created · 0 updated · 0 deleted/, labels);
+      read(fake, await run(), /Pill: 0 steps · 0 created · 0 updated · 0 deleted/, labels);
       // A hug set by hand on a bound height: FigCraft keeps the layer fixed while the height is bound (measured).
       const root = named(fake, 'COMPONENT', 'Pill');
       root.sizing = { ...root.sizing, vertical: 'hug' };
       root.children!.find((child) => child.name === 'Caption')!.textAutoResize = 'widthAndHeight';
-      read(fake, await run(), /Pill: 1 step · 0 created · 0 updated · 0 deleted/, labels);
+      read(fake, await run(), /Pill: 0 steps · 0 created · 0 updated · 0 deleted/, labels);
     } finally {
       await fake.close();
     }
