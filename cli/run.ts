@@ -101,7 +101,16 @@ export interface Source {
 }
 
 /** The label of an entry in a message: its paths as typed, in order. */
-export const entryLabel = (entry: string | string[]): string => (typeof entry === 'string' ? entry : entry.join(', '));
+const entryLabel = (entry: string | string[]): string => (typeof entry === 'string' ? entry : entry.join(', '));
+
+/**
+ * An entry that did not load, in a message: lib's line alone where it names the entry's location already (`the entry
+ * document "<path>" could not be read. …`, `… is not JSON. …`), and after the entry's label where it names no file.
+ */
+export const notLoaded = (entry: string | string[], error: unknown): string => {
+  const { message } = error as Error;
+  return message.startsWith('the entry document "') ? message : `${entryLabel(entry)}: ${message}`;
+};
 
 /** Loads the entry, reading only what its references reach, and keeps each file read for the plugin. */
 export async function readSource(entry: string | string[], io: Io, { name, overrides: mapFile }: LoadArguments = {}): Promise<Source> {
@@ -310,7 +319,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
     try {
       source = await readSource(entry, io, args);
     } catch (error) {
-      io.stderr(`${entryLabel(entry)}: ${(error as Error).message}\n`);
+      io.stderr(`${notLoaded(entry, error)}\n`);
       return 1;
     }
   }
@@ -469,8 +478,9 @@ async function finishFigcraftLibrary(
   if (dryRun) {
     // A moved library is found by the id the lock holds for it, not at the path it was enabled from.
     const lock = await target.request({ type: 'GET_LOCK', payload: {} }, ['LOCK']);
-    await describeTarget(control, target.pin, path, given, lock.type === 'LOCK' ? lock.payload.libraries[name]?.id : undefined, io);
-    io.stdout('Dry run: the library was not published or saved, and the lock in the target was not written.\n');
+    const id = lock.type === 'LOCK' ? lock.payload.libraries[name]?.id : undefined;
+    await describeTarget(control, target.pin, path, given, id, library !== undefined, io);
+    io.stdout(`Dry run: ${library ? 'the library was not published or saved, and ' : ''}the lock in the target was not written.\n`);
     return 0;
   }
   if (library) {
@@ -700,10 +710,12 @@ async function runSteps(
           : `${of('CREATE_SET').reduce((sum, step) => sum + (step.members ?? 0), 0) + of('CREATE_MEMBER').length} would create · ` +
             `${new Set(report.steps.filter((step) => MEMBER_WRITES.has(step.kind)).map((step) => step.member)).size} would update · ` +
             `${of('DELETE_MEMBER').length} would delete`;
+      // Every step but the relayout that ends every plan for a set already made: an unchanged set counts 0, as an artboard does.
+      const steps = report.steps.filter((step) => step.kind !== 'RELAYOUT').length;
       // Fields kept as hand edits, counted: their notes are among the many standing ones and easy to miss.
       const { drifted } = report;
       io.stdout(
-        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(report.steps.length, 'step')} · ${counts}${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}${drifted ? ` · ${drifted} drifted` : ''}\n`,
+        `${name}${report.dryRun ? ' (dry run)' : ''}: ${plural(steps, 'step')} · ${counts}${report.breaking.length ? ` · ${report.breaking.length} breaking` : ''}${drifted ? ` · ${drifted} drifted` : ''}\n`,
       );
       // An artboard's plan is its layers: what is made, patched, moved or removed, one line each.
       if (report.artboard) {

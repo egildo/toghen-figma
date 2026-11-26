@@ -11,7 +11,7 @@ import { Resolver } from '@toghen/lib';
 import { resolve } from 'node:path';
 import { checkComponents } from '../main/components/file.js';
 import { resolveSumModes } from '../main/utils/resolverModes.js';
-import { entryLabel, readInputs, readSource, type Io, type LoadArguments } from './run.js';
+import { notLoaded, readInputs, readSource, type Io, type LoadArguments } from './run.js';
 
 export interface CheckArguments extends LoadArguments {
   /** A resolver document, one token file, or several in order. */
@@ -28,7 +28,7 @@ export async function check(args: CheckArguments, io: Io): Promise<number> {
     // As the plugin does when it loads a document: the sum, which refuses a modifier with no default.
     resolveSumModes(design);
   } catch (error) {
-    io.stderr(`${entryLabel(args.entry)}: ${(error as Error).message}\n`);
+    io.stderr(`${notLoaded(args.entry, error)}\n`);
     return 1;
   }
   let inputs: Record<string, unknown> | undefined;

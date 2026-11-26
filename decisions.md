@@ -1870,3 +1870,31 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 - A real headless run on the moved worked example printed only typed paths, and saved a lock with no path.
 - The restack's known blind spot is tested: a set the run itself makes larger can push sets the dry run did not name. The line gives no positions.
 - On the merged branch, one of seven test runs failed once (`Expected values to be strictly equal`); the six after it passed. It may be the `serve(0)` flake noted on 23 November.
+
+## Fixed and built: the leftovers of the measurement of 26 November 2026 (26 November 2026)
+
+**Status:** done on the branch `leftovers`, for 0.1.19.
+
+**Where it comes from.** The skills were measured again on 26 November 2026 against 0.1.18 (skills' `decisions.md`, *Measured again*), and four behaviours of this command line were left. The plan is house's `.reference/plans/workspace/plan-2026-11-26-leftovers.md`. Egildo ruled its two questions "1a 2a" the same day.
+
+**Fixed:**
+
+- **`lock --dry-run` says what `lock` would do.** Its line said `a run would publish the library first, then accept them`, and `lock` publishes nothing. It now says `…waiting; a run would accept them, then write the lock.`, and its last line `Dry run: the lock in the target was not written.`, which had the same fault. A run that builds keeps both of its lines.
+- **A first headless run names its target as later runs do.** A `--figcraft-file` that did not exist yet was written as the session's untitled file, and only the save gave it its name, after the lines that named it: `Enabled … in "Untitled"`, `The lock in "Untitled" holds …`. The untitled file is now renamed first, `file.rename {name}` to the file's name without `.figcraft`, as `pinPath` names a new library file. A FigCraft that refuses the rename keeps `Untitled` until the save, and the run goes on.
+
+**Ruled and built:**
+
+- **An entry lib could not read, or that is not JSON, is printed in lib's line alone** (question 1a), which names the entry already, at the location lib read: `the entry document "<absolute path>" could not be read. ENOENT: no such file or directory`. It is the line query prints. Every other load error keeps the entry as typed in front, since lib's message names no file: `tokens.resolver.json: $ref "#/nowhere" could not be resolved within the document.` One helper, `notLoaded`, serves `sync`, `check` and `members`.
+- **A set's step count leaves out the `RELAYOUT` that ends every set's plan** (question 2a). An unchanged set printed `Chip: 1 step · 0 created · 0 updated · 0 deleted`, and an unchanged artboard `0 steps`; both now print `0 steps`. The run still re-lays the set out. The reference says what the count leaves out.
+
+**What the build found.**
+
+- Measured with `figcraft-cli` 0.18.1: `file.rename` renames the untitled tab (`doc.list` lists `"app"`), writes nothing to disk, and the save keeps the name. A dry run of a first library run left the disk empty.
+- The reference's artboard example `Page (dry run): 3 steps · 3 would create · 1 would update` was wrong before this round. Three layers made in an artboard that exists are three steps, and an update is one more, so it now reads `4 steps`.
+- A new set's plan is `CREATE_SET` alone, with no `RELAYOUT`, so a first build still counts `1 step`.
+- The rename sits where the target is pinned, not in the headless transport, which a test's stand-in answers only `initialize`.
+
+**Noticed, not fixed:**
+
+- **The bridge flake.** `test/cliRun.test.ts` sometimes gets close code 1006 where it expects 4001 for a wrong pairing code. The flake failed `pnpm check` on three of the build's first four runs, and on none of `pnpm test` alone. It is the `serve(0)` flake of 23 November, and touches nothing this round changed.
+- **A list of token files with one missing** keeps its prefix, and names paths twice over: `t/a.tokens.json, t/b.tokens.json: $ref "b.tokens.json" in "/…/t/t.resolver.json": "/…/t/b.tokens.json" could not be read. …`. The quoted resolver is lib's own wrapper for a list, which is not on disk. Ruling 1a covers the entry, not this.

@@ -85,6 +85,7 @@ const PARAMETERS: Record<string, string[]> = {
   'doc.list': [],
   'doc.switch': ['index'],
   'file.new': ['name'],
+  'file.rename': ['name'],
   'file.open': ['path', 'data', 'name', 'variables', 'reload'],
   'file.save': ['path', 'overwrite'],
   'file.close': ['index', 'force'],
@@ -537,6 +538,9 @@ export async function startFakeFigcraft(
         fake.tabs.push({ ...file(params.name ?? 'Untitled'), id: documents++ });
         fake.active = fake.tabs.length - 1;
         return { index: fake.active };
+      case 'file.rename':
+        f.name = params.name;
+        return { ok: true };
       case 'file.open': {
         const open = fake.tabs.findIndex((t) => t.path === params.path);
         if (open < 0) {

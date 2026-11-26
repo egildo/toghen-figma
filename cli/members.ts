@@ -11,7 +11,7 @@ import { Resolver } from '@toghen/lib';
 import { resolve } from 'node:path';
 import { readComponentText } from '../main/components/file.js';
 import { resolveSumModes } from '../main/utils/resolverModes.js';
-import { entryLabel, readInputs, readSource, type Io, type LoadArguments } from './run.js';
+import { notLoaded, readInputs, readSource, type Io, type LoadArguments } from './run.js';
 
 export interface MembersArguments extends LoadArguments {
   /** A resolver document, one token file, or several in order. */
@@ -27,7 +27,7 @@ export async function members(args: MembersArguments, io: Io): Promise<number> {
     design = new Resolver((await readSource(args.entry, io, args)).document);
     resolveSumModes(design);
   } catch (error) {
-    io.stderr(`${entryLabel(args.entry)}: ${(error as Error).message}\n`);
+    io.stderr(`${notLoaded(args.entry, error)}\n`);
     return 1;
   }
   let inputs: Record<string, unknown> | undefined;

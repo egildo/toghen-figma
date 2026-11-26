@@ -245,7 +245,7 @@ describe('a library run into FigCraft', () => {
       said((await sync()).stdout, `The library ${typed} is already published as version 1: nothing to publish.`);
       said(
         (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
-        `Dry run: "target" has 0 updates from ${typed} waiting; a run would publish the library first, then accept them.`,
+        `Dry run: "target" has 0 updates from ${typed} waiting; a run would accept them, then write the lock.`,
       );
       // A path FigCraft lists is nobody's typing: it is printed as FigCraft gives it.
       const moved = join(folder, 'elsewhere', 'ds.figcraft');
@@ -254,6 +254,31 @@ describe('a library run into FigCraft', () => {
         (await command(['lock', relative(here, moved), '--figcraft', port, '--dry-run'])).stdout,
         `Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${relative(here, moved)}.`,
       );
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('says in a dry run what the run would do: one that builds publishes the library first, and lock publishes nothing', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const port = String(fake.port);
+    const said = (stdout: string, line: string) => assert.ok(stdout.includes(`${line}\n`), `${line}\nnot in:\n${stdout}`);
+    const sync = (flags: string[] = []) =>
+      command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', port, '--library', LIBRARY, ...flags]);
+    try {
+      assert.equal((await sync()).code, 0);
+      const built = await sync(['--dry-run']);
+      assert.equal(built.code, 0, built.stdout + built.stderr);
+      said(
+        built.stdout,
+        `Dry run: "target" has 0 updates from ${LIBRARY} waiting; a run would publish the library first, then accept them.`,
+      );
+      said(built.stdout, 'Dry run: the library was not published or saved, and the lock in the target was not written.');
+      const locked = await command(['lock', LIBRARY, '--figcraft', port, '--dry-run']);
+      assert.equal(locked.code, 0, locked.stderr);
+      said(locked.stdout, `Dry run: "target" has 0 updates from ${LIBRARY} waiting; a run would accept them, then write the lock.`);
+      said(locked.stdout, 'Dry run: the lock in the target was not written.');
+      assert.doesNotMatch(locked.stdout, /publish/);
     } finally {
       await fake.close();
     }
@@ -438,6 +463,42 @@ FRAME Holder layoutMode=HORIZONTAL {
     } finally {
       await fake.close();
     }
+  });
+});
+
+describe('a first headless run into a file that does not exist yet', () => {
+  const target = join(folder, 'site.figcraft');
+  const library = join(folder, 'site-kit.figcraft');
+  let fake: FakeFigcraft;
+  before(async () => {
+    process.env.FIGCRAFT_CLI = join(here, 'support', 'fakeFigcraftCli.mjs');
+    delete process.env.FAKE_FIGCRAFT_VERSION;
+    // The session's untitled file, which the run writes into and saves at the target's path.
+    fake = await startFakeFigcraft(['Untitled']);
+    process.env.FAKE_FIGCRAFT_PORT = String(fake.port);
+  });
+  after(async () => {
+    await fake.close();
+  });
+
+  it('names the target after its file from its first line, as every later run names it', async () => {
+    const sync = (flags: string[] = [], files = COMPONENTS) =>
+      command(['sync', 'fixtures/sample.resolver.json', ...files, '--figcraft-file', target, '--library', library, ...flags]);
+    const dry = await sync(['--dry-run'], COMPONENTS.slice(0, 1));
+    assert.equal(dry.code, 0, dry.stdout + dry.stderr);
+    assert.match(dry.stdout, /Dry run: .*site-kit\.figcraft is not enabled in "site"; a run would enable it\./);
+    assert.equal(fake.disk.size, 0, 'a dry run saves nothing');
+    const first = await sync();
+    assert.equal(first.code, 0, first.stdout + first.stderr);
+    assert.match(first.stdout, /Enabled .*site-kit\.figcraft in "site", with no update to accept\./);
+    assert.match(first.stdout, /The lock in "site" holds "site-kit"/);
+    assert.ok(fake.disk.has(target));
+    // Saved: a later run opens the file, by the name the save gave it.
+    writeFileSync(target, '');
+    const again = await sync();
+    assert.equal(again.code, 0, again.stdout + again.stderr);
+    assert.match(again.stdout, /The lock in "site" holds "site-kit"/);
+    assert.doesNotMatch(first.stdout + dry.stdout, /Untitled/);
   });
 });
 

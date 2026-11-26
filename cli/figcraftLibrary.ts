@@ -137,7 +137,8 @@ export async function enable(control: Control, target: Pin, path: string, given:
 
 /**
  * What a dry run says of the target: whether the library is enabled there, found by the id the target's lock holds for
- * it when it holds one; at another path, when it moved; and the updates waiting from it.
+ * it when it holds one; at another path, when it moved; and the updates waiting from it, with what the run would do
+ * with them: a run that builds publishes the library first, and `lock` publishes nothing.
  */
 export async function describeTarget(
   control: Control,
@@ -145,6 +146,7 @@ export async function describeTarget(
   path: string,
   given: string,
   id: string | undefined,
+  publishes: boolean,
   say: Say,
 ): Promise<void> {
   const library = await listed(control, target, path, id);
@@ -153,7 +155,7 @@ export async function describeTarget(
     return say.stdout(`Dry run: "${target.tab.name}" has the library at ${library.path}; a run would point it at ${given}.\n`);
   if (library.error) return say.stdout(`Dry run: "${target.tab.name}" cannot read ${given}: ${library.error}\n`);
   say.stdout(
-    `Dry run: "${target.tab.name}" has ${plural(library.updates ?? 0, 'update')} from ${given} waiting; a run would publish the library first, then accept them.\n`,
+    `Dry run: "${target.tab.name}" has ${plural(library.updates ?? 0, 'update')} from ${given} waiting; a run would ${publishes ? 'publish the library first, then accept them' : 'accept them, then write the lock'}.\n`,
   );
 }
 
