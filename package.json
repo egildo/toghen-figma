@@ -1,6 +1,6 @@
 {
   "name": "@toghen/figma",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "type": "module",
   "bin": {
     "toghen-figma": "cli/bin.mjs"
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@bgotink/kdl": "^0.4.0",
-    "@toghen/lib": "^0.2.0",
+    "@toghen/lib": "^0.2.1",
     "kdlet": "^0.1.0",
     "kdlet-guards": "^0.1.0",
     "tsx": "^4.20.3",

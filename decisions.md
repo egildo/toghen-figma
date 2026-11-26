@@ -1848,7 +1848,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Fixed and built: what the measurement of 25 November 2026 found (26 November 2026)
 
-**Status:** built; not released yet. The missing entry's message names its path once only when this package moves to lib's next release.
+**Status:** done, in 0.1.18, on lib 0.2.1, which names the missing entry once.
 
 **Where it comes from.** On 25 November 2026 the `toghen` skills were measured against the released tools, with FigCraft headless (skills' `decisions.md`, *Measured*). The round's plan is house's `.reference/plans/workspace/plan-2026-11-25-measurement-fixes.md`. Egildo ruled its questions "1b 2a 3a 4a 5a" on 26 November 2026; this repository takes 1b, 2a and 3a.
 
