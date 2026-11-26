@@ -1909,7 +1909,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Fixed: a file of a list of token files named once (26 November 2026)
 
-**Status:** built, on the branch `token-file-list`; waits on the merge, and on lib 0.2.2.
+**Status:** done, in 0.1.20, on lib 0.2.2.
 
 **Where it comes from.** The *Noticed, not fixed* line of the leftovers entry on a list of token files with one missing. Egildo said "Fix the token-file list too" the same day.
 
