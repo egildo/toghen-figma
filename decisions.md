@@ -1901,7 +1901,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Fixed: the bridge test that flaked (26 November 2026)
 
-**Status:** done on the branch `bridge-flake`. Only a test changed, so no version.
+**Status:** done, on main after 0.1.19. Only a test changed, so no version.
 
 **What it was.** *pairs each file with its own code* (`test/cliRun.test.ts`, the lock from the command line) sometimes got close code 1006 where it expects 4001, always at its second wrong code, the one sent after the library's plugin paired. Under load, ten copies at once, it failed 8 runs in 30. The test connected both plugins before sending its wrong codes. Once both paired, the run went on, and with the fake plugins' quick answers it could end, and close every socket (`client.terminate()`), before the wrong code was answered: 1006, a socket cut, not a code accepted. The bridge was right. The target's plugin now connects only after both wrong codes are refused; a run with fresh codes waits for every plugin with no time limit. The same check passed 60 runs in 60.
 
