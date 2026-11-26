@@ -395,8 +395,9 @@ export interface Lock {
 export interface LockedLibrary {
   /** The library file's key, only where a run could read it; never guessed. */
   fileKey?: string;
-  /** FigCraft: the library's `.figcraft` file, where the run last found it, and the id the file keeps, which a move keeps. */
+  /** FigCraft: the library's `.figcraft` file, as an older run wrote it; still read, and ignored, since no run writes it now. */
   path?: string;
+  /** FigCraft: the id the library's file keeps, which a move keeps. */
   id?: string;
   /** Who wrote the entry last. */
   by: 'discovery' | 'build' | 'command line' | 'person';

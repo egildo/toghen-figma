@@ -408,7 +408,7 @@ export async function run(args: RunArguments, io: RunIo): Promise<number> {
       const target = bridge as FigcraftBridge;
       for (const use of args.uses) {
         const path = resolve(io.cwd, use);
-        const entry = lockedFrom(await enable(target.control, target.pin, path, false, io), path, 'command line');
+        const entry = lockedFrom(await enable(target.control, target.pin, path, false, io), 'command line');
         const written = await target.request({ type: 'LOCK_WRITE', payload: { library: libraryName(path), entry } }, ['LOCK']);
         if (written.type === 'ERROR') throw new Error(`The lock in "${target.pin.tab.name}" was not written: ${written.payload.message}`);
         io.stdout(`Using ${use}: the lock in "${target.pin.tab.name}" holds "${libraryName(path)}", ${counted(entry)}.\n`);
@@ -477,7 +477,7 @@ async function finishFigcraftLibrary(
     await publish(control, library.pin, path, io);
   }
   const listed = await enable(control, target.pin, path, true, io);
-  const entry = lockedFrom(listed, path, by);
+  const entry = lockedFrom(listed, by);
   const written = await target.request({ type: 'LOCK_WRITE', payload: { library: name, entry } }, ['LOCK']);
   if (written.type === 'ERROR') {
     io.stderr(`The lock in "${target.pin.tab.name}" was not written: ${written.payload.message}\n`);

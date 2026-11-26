@@ -63,11 +63,9 @@ describe('a library run into FigCraft', () => {
         collections: [{ id: 'VariableCollectionId:1', name: 'Tokens' }],
         variables: [{ id: 'VariableID:3', name: 'color/accent', collection: 'VariableCollectionId:1' }],
       },
-      '/work/ds.figcraft',
       'build',
     );
     assert.deepEqual(entry, {
-      path: '/work/ds.figcraft',
       id: '00000000000000a1',
       by: 'build',
       components: { Badge: { key: '00000000000000a1:5', set: true } },
@@ -108,7 +106,7 @@ describe('a library run into FigCraft', () => {
       );
       const lock = lockIn(fake, 0);
       const entry = lock.libraries.ds;
-      assert.equal(entry.path, LIBRARY);
+      assert.equal(entry.path, undefined, 'the id finds the library; the lock keeps no path');
       assert.match(entry.id!, /^[0-9a-f]{16}$/);
       assert.deepEqual(Object.keys(entry.components).sort(), ['Button', 'Icon']);
       assert.match(entry.components.Button.key, new RegExp(`^${entry.id}:\\d+$`));
@@ -441,7 +439,7 @@ describe('a library run headless', () => {
     assert.deepEqual(calls.at(-1), { tool: 'save_file', arguments: { path: target } });
     assert.ok(fake.disk.has(library), 'the library saved at its path');
     const index = fake.tabs.findIndex((tab) => tab.path === target);
-    assert.equal(lockIn(fake, index).libraries['headless-ds'].path, library);
+    assert.equal(lockIn(fake, index).libraries['headless-ds'].path, undefined);
     // A new session: both files are opened from disk, where the run saved them.
     fake.tabs.splice(1);
     fake.active = 0;

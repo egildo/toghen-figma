@@ -47,11 +47,12 @@ const KINDS: Record<string, 'TEXT' | 'EFFECT' | 'PAINT'> = { text: 'TEXT', effec
 /**
  * The lock's entry for a library, from the using file's listing of it: each component and set by its name, each text,
  * effect and paint style by the token path its name spells (`/` to `.`, as a person's pick keeps one), each variable
- * by `<collection>/<name>`.
+ * by `<collection>/<name>`. It keeps the library's id, which finds it after a move, and no path: every run is given
+ * the path again.
  */
-export function lockedFrom(library: FcLibrary, path: string, by: LockedLibrary['by']): LockedLibrary {
+export function lockedFrom(library: FcLibrary, by: LockedLibrary['by']): LockedLibrary {
   const collections = new Map((library.collections ?? []).map((collection) => [collection.id, collection.name]));
-  const entry: LockedLibrary = { path, id: library.id, by, components: {}, styles: {}, variables: {} };
+  const entry: LockedLibrary = { id: library.id, by, components: {}, styles: {}, variables: {} };
   for (const component of library.components ?? [])
     entry.components[component.name] = { key: keyOf(library.id, component.id), set: component.set };
   for (const style of library.styles ?? []) {

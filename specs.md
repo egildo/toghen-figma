@@ -1506,10 +1506,12 @@ changes: every name resolves in the file, as before.
 file keeps (so a moved file is the same library) and a run reaches it by its path. A key is
 `<library id>:<asset id>`, the asset id being the library's own id for it: a component's or set's node id in the
 library file, `VariableID:n`, `S:n`. For a variable or a style, that is also its copy's id in the file that uses it.
-The lock's shape is Figma's, keyed by the library file's name without `.figcraft`, with the entry's `path` and `id`
-beside `by`. It is filled from the using file's own listing of the library (`library.list {assets}`), which names
-every component, style and variable. No second plugin is needed, and nobody has to pick. FigCraft's root holds no
-data, so the root's shared plugin data, and the lock with it, is kept in the record on the `-toghen` divider (*FigCraft*).
+The lock's shape is Figma's, keyed by the library file's name without `.figcraft`, with the entry's `id` beside `by`,
+and no path: the id is what finds the library, and every run is given the path again, so the lock does not carry the
+folder of whoever ran last (FigCraft's own link to the library, absolute, still does). It is filled from the using
+file's own listing of the library (`library.list {assets}`), which names every component, style and variable. No
+second plugin is needed, and nobody has to pick. FigCraft's root holds no data, so the root's shared plugin data, and
+the lock with it, is kept in the record on the `-toghen` divider (*FigCraft*).
 
 **Not built:** building a blueprint as a whole. The Build pane (22 October 2026) passes a blueprint's `library`
 lines to the locator in its dry passes only: looking up its needs, and planning a relink (`PLAN_RELINK`), which keeps

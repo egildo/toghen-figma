@@ -186,6 +186,13 @@ describe('the lock', () => {
     assert.deepEqual(loadLock(), { libraries: {} });
   });
 
+  it("reads an entry an older run wrote with a FigCraft library's path, which no run writes now", () => {
+    createFigmaMock().install();
+    const lock: Lock = { libraries: { [LIBRARY]: { ...lockedLibrary(), path: '/elsewhere/lib.figcraft', id: '00000000000000a1' } } };
+    withLock(lock);
+    assert.deepEqual(loadLock(), lock);
+  });
+
   describe('discovery', () => {
     const keep = () =>
       saveTemplates([

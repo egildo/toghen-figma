@@ -435,7 +435,7 @@ interface Lock {
 
 interface LockedLibrary {
   fileKey?: string;                             // only where a run could read it; never guessed
-  path?: string;                                // FigCraft: the library's .figcraft file, where the run last found it
+  path?: string;                                // FigCraft: the library's .figcraft file, as an older run wrote it; read, and ignored
   id?: string;                                  // FigCraft: the id the library's file keeps, which a move keeps
   by: 'discovery' | 'build' | 'command line' | 'person';   // who wrote the entry last
   components: Record<string, { key: string; set: boolean }>;   // a component's name as files write it
@@ -448,7 +448,9 @@ A key is Figma's (forty hex digits), or in FigCraft `<library id>:<asset id>`: t
 the library, and the library's own id for the asset (a component's or set's node id in the library file,
 `VariableID:n`, `S:n`). In FigCraft an entry is keyed by the library file's name without `.figcraft`, and written from
 the using file's `library.list {assets}` (`lockedFrom` in `cli/figcraftLibrary.ts`): every component and set by name,
-every text, effect and paint style by the token path its name spells, every variable by `<collection>/<name>`.
+every text, effect and paint style by the token path its name spells, every variable by `<collection>/<name>`. The
+entry holds the library's `id` and no `path`: every run is given the path again, by `--library` or `--use`. An entry
+an older run wrote with a `path` is still read, and the path is ignored; the next run that writes the entry drops it.
 
 `Overrides` is the load's type, `Record<string, string>`. In Build's map a key is a component's name, a token path,
 or a library's name as a blueprint writes it; a value is a name, or a key written `(key)"…"` as a component file
