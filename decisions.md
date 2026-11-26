@@ -1873,7 +1873,7 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
 
 ## Fixed and built: the leftovers of the measurement of 26 November 2026 (26 November 2026)
 
-**Status:** done on the branch `leftovers`, for 0.1.19.
+**Status:** done, in 0.1.19.
 
 **Where it comes from.** The skills were measured again on 26 November 2026 against 0.1.18 (skills' `decisions.md`, *Measured again*), and four behaviours of this command line were left. The plan is house's `.reference/plans/workspace/plan-2026-11-26-leftovers.md`. Egildo ruled its two questions "1a 2a" the same day.
 
