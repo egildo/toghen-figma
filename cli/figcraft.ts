@@ -359,9 +359,9 @@ export async function pinShownFile(control: Control): Promise<Pin> {
 /**
  * The file at `path`, pinned: its tab where it is open, else a tab it is opened in, by the index the opening answers
  * either way. A file that does not exist yet is a new document named after it, with no path until it is saved there
- * (`made`), which is the caller's to do.
+ * (`made`), which is the caller's to do. `given` is the path as typed, for a message.
  */
-export async function pinPath(control: Control, path: string): Promise<Pin & { made?: true }> {
+export async function pinPath(control: Control, path: string, given = path): Promise<Pin & { made?: true }> {
   const window = await frontWindow(control);
   const at = { ...(window !== undefined ? { window } : {}) };
   // FigCraft opens it, or says it is not there (`No such file or directory`); the file system it reads is its own.
@@ -374,7 +374,7 @@ export async function pinPath(control: Control, path: string): Promise<Pin & { m
   );
   if (opened !== undefined) {
     const tab = (await tabsIn(control, window))[opened];
-    if (!tab) throw new Error(`FigCraft did not open ${path}.`);
+    if (!tab) throw new Error(`FigCraft did not open ${given}.`);
     return { ...at, tab, path };
   }
   const { index } = (await control.call('engine.execute', {
@@ -383,7 +383,7 @@ export async function pinPath(control: Control, path: string): Promise<Pin & { m
     ...at,
   })) as { index: number };
   const tab = (await tabsIn(control, window))[index];
-  if (!tab) throw new Error(`FigCraft did not make a file for ${path}.`);
+  if (!tab) throw new Error(`FigCraft did not make a file for ${given}.`);
   return { ...at, tab, made: true };
 }
 
@@ -423,9 +423,9 @@ export async function inFile(control: Control, pin: Pin, label: string, steps: S
 
 /**
  * Saves the pinned file at `path`, in a batch of its own that shows it first. A file made by the run gets its path
- * here, and its pin follows it.
+ * here, and its pin follows it. `given` is the path as typed, for a message.
  */
-export async function savePinned(control: Control, pin: Pin, path: string): Promise<void> {
+export async function savePinned(control: Control, pin: Pin, path: string, given = path): Promise<void> {
   if (pin.lost) throw new Error(pin.lost);
   const [, saved, tabs] = (await control.call('engine.execute', {
     command: 'command.batch',
@@ -441,7 +441,7 @@ export async function savePinned(control: Control, pin: Pin, path: string): Prom
   // The tab is still the file pinned: by its id, or, where FigCraft lists none, by the path it now has (a save renames it).
   const now = tabs[pin.tab.index];
   if (now === undefined || (pin.tab.id !== undefined ? now.id !== pin.tab.id : now.path !== path)) {
-    pin.lost = `FigCraft no longer has "${pin.tab.name}" at the tab it was in: it was not saved at ${path}.`;
+    pin.lost = `FigCraft no longer has "${pin.tab.name}" at the tab it was in: it was not saved at ${given}.`;
     throw new Error(pin.lost);
   }
   pin.tab = now;

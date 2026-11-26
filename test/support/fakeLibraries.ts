@@ -14,8 +14,8 @@
  * - `library.updates` lists the copies whose asset has a newer version; `library.acceptUpdates` brings them in: a copy
  *   keeps its id, a variant is matched by id, so one removed leaves its instances with a missing main, and one added is
  *   a new copy. An asset deleted and made again is another asset, never an update.
- * - A library whose file is gone is listed with an error; importing from it fails; enabling it at its new path finds
- *   the same id and keeps every copy.
+ * - A library whose file is gone is listed at its path with an error (measured, 0.18.1); importing from it fails;
+ *   enabling it at its new path finds the same id and keeps every copy.
  */
 
 /** What the fake's files hold that this module reads and writes. */
@@ -330,7 +330,14 @@ export function libraryCommand(helpers: LibraryHelpers, f: LibraryFile, command:
             ...(params.assets ? assetsOf(published) : {}),
           };
         } catch (error) {
-          return { id: library.id, name: library.name, seenVersion: library.seenVersion, server: false, error: (error as Error).message };
+          return {
+            id: library.id,
+            name: library.name,
+            path: library.path,
+            seenVersion: library.seenVersion,
+            server: false,
+            error: (error as Error).message,
+          };
         }
       });
       return {

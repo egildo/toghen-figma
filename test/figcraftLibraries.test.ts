@@ -9,7 +9,7 @@ import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main, type Io } from '../cli/main.js';
 import { lockedFrom } from '../cli/figcraftLibrary.js';
@@ -63,11 +63,9 @@ describe('a library run into FigCraft', () => {
         collections: [{ id: 'VariableCollectionId:1', name: 'Tokens' }],
         variables: [{ id: 'VariableID:3', name: 'color/accent', collection: 'VariableCollectionId:1' }],
       },
-      '/work/ds.figcraft',
       'build',
     );
     assert.deepEqual(entry, {
-      path: '/work/ds.figcraft',
       id: '00000000000000a1',
       by: 'build',
       components: { Badge: { key: '00000000000000a1:5', set: true } },
@@ -108,7 +106,7 @@ describe('a library run into FigCraft', () => {
       );
       const lock = lockIn(fake, 0);
       const entry = lock.libraries.ds;
-      assert.equal(entry.path, LIBRARY);
+      assert.equal(entry.path, undefined, 'the id finds the library; the lock keeps no path');
       assert.match(entry.id!, /^[0-9a-f]{16}$/);
       assert.deepEqual(Object.keys(entry.components).sort(), ['Button', 'Icon']);
       assert.match(entry.components.Button.key, new RegExp(`^${entry.id}:\\d+$`));
@@ -192,6 +190,70 @@ describe('a library run into FigCraft', () => {
       assert.match(locked.stdout, /written by the command line/);
       assert.equal(lockIn(fake, 0).libraries.ds.by, 'command line');
       assert.ok(!fake.labels.slice(labels).some((label) => /Publish/.test(label)), 'nothing published');
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it("finds a library moved to another folder by the id the target's lock holds: a dry run says a run would point it there, and the run does", async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const moved = join(folder, 'moved', 'ds.figcraft');
+    try {
+      assert.equal(
+        (await command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', String(fake.port), '--library', LIBRARY]))
+          .code,
+        0,
+      );
+      const id = lockIn(fake, 0).libraries.ds.id;
+      // The folder moved: the library's file is at its new path only, and the target still enables it at the old one.
+      fake.disk.set(moved, fake.disk.get(LIBRARY));
+      fake.disk.delete(LIBRARY);
+      const dry = await command(['lock', moved, '--figcraft', String(fake.port), '--dry-run']);
+      assert.equal(dry.code, 0, dry.stderr);
+      assert.ok(dry.stdout.includes(`Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${moved}.\n`), dry.stdout);
+      assert.equal(fake.tabs[0].libraries![0].path, LIBRARY, 'a dry run points nothing');
+      const locked = await command(['lock', moved, '--figcraft', String(fake.port)]);
+      assert.equal(locked.code, 0, locked.stderr);
+      assert.deepEqual(
+        fake.tabs[0].libraries!.map((library) => [library.id, library.path]),
+        [[id, moved]],
+        'the same library, at its new path',
+      );
+      assert.match((await command(['lock', moved, '--figcraft', String(fake.port), '--dry-run'])).stdout, /has 0 updates from .* waiting/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it('names the library by its path as typed, and sends FigCraft the absolute path', async () => {
+    const fake = await startFakeFigcraft(['target']);
+    const typed = relative(here, LIBRARY);
+    const port = String(fake.port);
+    const said = (stdout: string, line: string) => assert.ok(stdout.includes(`${line}\n`), `${line}\nnot in:\n${stdout}`);
+    try {
+      said(
+        (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: ${typed} is not enabled in "target"; a run would enable it.`,
+      );
+      const sync = () => command(['sync', 'fixtures/sample.resolver.json', ...COMPONENTS, '--figcraft', port, '--library', typed]);
+      const first = await sync();
+      assert.equal(first.code, 0, first.stderr);
+      said(first.stdout, `Published the library ${typed} as version 1, and saved it.`);
+      said(first.stdout, `Enabled ${typed} in "target", with no update to accept.`);
+      assert.ok(fake.disk.has(LIBRARY), 'saved at the absolute path');
+      assert.equal(fake.tabs[0].libraries![0].path, LIBRARY, 'enabled at the absolute path');
+      said((await sync()).stdout, `The library ${typed} is already published as version 1: nothing to publish.`);
+      said(
+        (await command(['lock', typed, '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: "target" has 0 updates from ${typed} waiting; a run would publish the library first, then accept them.`,
+      );
+      // A path FigCraft lists is nobody's typing: it is printed as FigCraft gives it.
+      const moved = join(folder, 'elsewhere', 'ds.figcraft');
+      fake.disk.set(moved, fake.disk.get(LIBRARY));
+      said(
+        (await command(['lock', relative(here, moved), '--figcraft', port, '--dry-run'])).stdout,
+        `Dry run: "target" has the library at ${LIBRARY}; a run would point it at ${relative(here, moved)}.`,
+      );
     } finally {
       await fake.close();
     }
@@ -411,7 +473,7 @@ describe('a library run headless', () => {
     assert.deepEqual(calls.at(-1), { tool: 'save_file', arguments: { path: target } });
     assert.ok(fake.disk.has(library), 'the library saved at its path');
     const index = fake.tabs.findIndex((tab) => tab.path === target);
-    assert.equal(lockIn(fake, index).libraries['headless-ds'].path, library);
+    assert.equal(lockIn(fake, index).libraries['headless-ds'].path, undefined);
     // A new session: both files are opened from disk, where the run saved them.
     fake.tabs.splice(1);
     fake.active = 0;

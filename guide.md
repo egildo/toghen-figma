@@ -722,7 +722,7 @@ Without it, the board balances itself: axes go across from the last one backward
 
 Toghen remembers where it put each set and artboard. After every run, its own sets on each page the run touched are stacked again, top to bottom in their current order, left edges aligned, 100 px apart, so a set that grew pushes the ones below it down instead of covering them. A set you moved by hand is yours: it stays where you put it, and the stack flows around it. If it then overlaps something, the run says so and leaves it.
 
-A set made before Toghen remembered positions is moved only if it overlaps another set; otherwise it stays, and from then on it is Toghen's to place. A dry run lists which sets a run would restack and which were moved by hand, without positions, since the sets it would build have no size yet. The run report lists each set it moved.
+A set made before Toghen remembered positions is moved only if it overlaps another set; otherwise it stays, and from then on it is Toghen's to place. A dry run lists the sets a run would move at today's sizes, and those moved by hand; where nothing would move, it says nothing of the page. It gives no positions, since the sets it would build have no size yet, and one that grows may push others it did not name. The run report lists each set it moved.
 
 A dry run resolves the same names and reports what would happen, and writes nothing. It does not import a component named by a published key, since importing writes to the file, so a key is not checked until a real run.
 
@@ -880,7 +880,7 @@ In FigCraft a library is a `.figcraft` file published as one. Publishing and acc
 3. **When the library changes**, run `kit` again: the change is published and accepted. If the library made a component again rather than changing it in place, FigCraft treats it as another component. The next `app` run then swaps each instance Toghen made (`swap Glyph`), and leaves the instances you placed.
 
 - **`toghen-figma lock design/kit.figcraft --figcraft 7979`** builds nothing: it enables the library, accepts its updates and writes the lock. Use it after publishing a library by hand.
-- **A moved library is the same library.** It keeps its id in its file. Give `--library` or `--use` its new path, and the file that uses it points there again, keeping every instance.
+- **A moved library is the same library.** It keeps its id in its file. Give `--library` or `--use` its new path, and the file that uses it points there again, keeping every instance. A dry run says it would.
 - **Headless**, the same with `--figcraft-file design/app.figcraft` in place of `--figcraft 7979`. Both files are opened in one session, and the file that uses the library is saved last.
 - **Team libraries**, kept on a `figcraft-server`, are not built: a share link is refused.
 

@@ -1845,3 +1845,28 @@ Released in 0.1.16. Found by a consumer's sync against `figcraft-cli` 0.15.1, he
   | the plugin's own sheet | 26.6 kB | 17.7 kB |
 
 **Not done.** No test pins "nothing lowered". Add one when esbuild is next upgraded.
+
+## Fixed and built: what the measurement of 25 November 2026 found (26 November 2026)
+
+**Status:** built; not released yet. The missing entry's message names its path once only when this package moves to lib's next release.
+
+**Where it comes from.** On 25 November 2026 the `toghen` skills were measured against the released tools, with FigCraft headless (skills' `decisions.md`, *Measured*). The round's plan is house's `.reference/plans/workspace/plan-2026-11-25-measurement-fixes.md`. Egildo ruled its questions "1b 2a 3a 4a 5a" on 26 November 2026; this repository takes 1b, 2a and 3a.
+
+**Fixed:**
+
+- **A dry run finds a library by the id the target's lock holds,** and by its path only when the lock holds none. A moved library read as "not enabled"; it now reads `Dry run: "<target>" has the library at <path>; a run would point it at <path>.`, which is what the real run does.
+
+**Ruled and built:**
+
+- **The lock keeps a FigCraft library's id, and no path** (question 1b). This supersedes part of *Ruled: libraries in FigCraft* (23 October 2026), 2: the entry no longer "holds the path". Nothing read the path back; every run is given it again, and the library is found by its id. An older entry that holds a path is still read, and the path is ignored. FigCraft's own link in the file stays absolute whatever the lock holds.
+- **The command line prints a path as typed, wherever a person typed it** (question 2a): the library lines, the dry-run lines and `Saved` included. FigCraft is still sent the absolute path. The reader gives Node's reason without Node's copy of the path. The reference states the rule once, at the command line's opening.
+- **A dry run names only the sets the restack would move** (question 3a). `describeStack` takes its names from `restack()`'s moves, at today's sizes; with nothing to move, a page gets no line. This closes the *Noticed, not fixed* line on the restack in the entry of 23 November 2026.
+
+**What the build found.**
+
+- FigCraft 0.18.1 lists a library that is gone at its path, beside its error. The fake left the path out, and now does not.
+- No message test changed: they used absolute paths or loose matches. The rule was widened to `pinPath`'s and `savePinned`'s failure lines, which printed the absolute path too.
+- `save()`'s returned path is now unused, and was left in place. The `ENOENT:` prefix of Node's reason is kept, the same as query's.
+- A real headless run on the moved worked example printed only typed paths, and saved a lock with no path.
+- The restack's known blind spot is tested: a set the run itself makes larger can push sets the dry run did not name. The line gives no positions.
+- On the merged branch, one of seven test runs failed once (`Expected values to be strictly equal`); the six after it passed. It may be the `serve(0)` flake noted on 23 November.

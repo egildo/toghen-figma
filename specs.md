@@ -1363,7 +1363,7 @@ A member whose axes differ from those of most members is named with its id. So i
 - *After every run,* on each page the run created or changed a set or artboard on, Toghen's sets and artboards are restacked: in their current order from top to bottom (then left to right), their left edges on the leftmost of them, the first where the topmost of them is, each next one 100 px (`SET_GAP`) below the one before. One that would overlap any other top-level node on the page (a set moved by hand, a frame Toghen did not make) goes below that node instead, again with the gap, until it overlaps nothing. A set the run created joins the stack at its end. Their `placed` stamps are then written.
 - *A set moved by hand that overlaps something* after the restack is noted in the run report and not moved: `"Button" was moved by hand and overlaps "Dot"; it was left where it is.`
 - *A set from before this round has no stamp.* One that overlaps another stamped set or artboard joins the stack: it is broken already. One that overlaps nothing is left where it is and stamped there, so from then on it is Toghen's.
-- *Not breaking.* A move loses nothing. A dry run lists, per page, the sets Toghen would restack and those moved by hand; it gives no positions, since the sizes of the sets it would build are not known until they are built. The run report lists each set moved, `moved "Dot" to 0, 7381`.
+- *Not breaking.* A move loses nothing. A dry run restacks each page at today's sizes and lists the sets that would move, and those moved by hand; a page where nothing would move gets no restack line. It gives no positions, since the sizes of the sets it would build are not known until they are built, and a set the run makes larger can push others the dry run did not name. The run report lists each set moved, `moved "Dot" to 0, 7381`.
 - *A run* is one `components` or `sync` command, or one template run from the plugin's screen. The sweep (2) and the restack happen once at its end, after its last component or artboard step (`FINISH_COMPONENTS`). *As built:* the screen's results surface has a checkbox that takes the breaking steps, so a stray can be removed from the screen too, as any breaking step can.
 
 This replaces *Where a new set goes* above, which placed a set the run created below everything and never moved one that existed.
@@ -1506,10 +1506,12 @@ changes: every name resolves in the file, as before.
 file keeps (so a moved file is the same library) and a run reaches it by its path. A key is
 `<library id>:<asset id>`, the asset id being the library's own id for it: a component's or set's node id in the
 library file, `VariableID:n`, `S:n`. For a variable or a style, that is also its copy's id in the file that uses it.
-The lock's shape is Figma's, keyed by the library file's name without `.figcraft`, with the entry's `path` and `id`
-beside `by`. It is filled from the using file's own listing of the library (`library.list {assets}`), which names
-every component, style and variable. No second plugin is needed, and nobody has to pick. FigCraft's root holds no
-data, so the root's shared plugin data, and the lock with it, is kept in the record on the `-toghen` divider (*FigCraft*).
+The lock's shape is Figma's, keyed by the library file's name without `.figcraft`, with the entry's `id` beside `by`,
+and no path: the id is what finds the library, and every run is given the path again, so the lock does not carry the
+folder of whoever ran last (FigCraft's own link to the library, absolute, still does). It is filled from the using
+file's own listing of the library (`library.list {assets}`), which names every component, style and variable. No
+second plugin is needed, and nobody has to pick. FigCraft's root holds no data, so the root's shared plugin data, and
+the lock with it, is kept in the record on the `-toghen` divider (*FigCraft*).
 
 **Not built:** building a blueprint as a whole. The Build pane (22 October 2026) passes a blueprint's `library`
 lines to the locator in its dry passes only: looking up its needs, and planning a relink (`PLAN_RELINK`), which keeps
